@@ -24,6 +24,9 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* List of processes in THREAD_SLEEP state */
+static struct list sleep_list;
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -92,12 +95,15 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  initial_thread->wake_up_time = 0;
+
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -133,6 +139,7 @@ thread_tick (void)
 #endif
   else
     kernel_ticks++;
+
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
@@ -552,6 +559,10 @@ thread_schedule_tail (struct thread *prev)
 static void
 schedule (void) 
 {
+
+  /* Update the ready list by dequeing from sleep_list */
+  wake_threads_up(); 
+
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
@@ -563,6 +574,21 @@ schedule (void)
   if (cur != next)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
+}
+
+static void
+wake_threads_up(void) 
+{
+    struct list_elem *e;
+    struct thread * t; 
+    while(should_wakeup(list_begin(&sleep_list)))
+    {
+        e = list_pop_front(&sleep_list);
+        t = list_entry(e, struct thread, sleep_elem);
+        
+        t->status = THREAD_BLOCKED;
+        list_push_back(&ready_list, &t->elem);
+    }
 }
 
 /* Returns a tid to use for a new thread. */

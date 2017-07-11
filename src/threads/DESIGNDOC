@@ -8,7 +8,7 @@
 
 >> Fill in the names and email addresses of your group members.
 
-SOLO yoyo
+SOLO yoyd 
 
 ---- PRELIMINARIES ----
 
@@ -33,33 +33,57 @@ ALARM CLOCK
 >> A2: Briefly describe what happens in a call to timer_sleep(),
 >> including the effects of the timer interrupt handler.
 
-timer_sleep() should set the wake_up_time of the thread and blocking
-the current thread with a yield. 
+It will put the current thread to the wait_list;
+then blocked the current thread by calling thread_block();
 
+Details:
+- get current thread
+- disable interrupt 
+- calculate wake up ticks 
+- push the thread to the sleep_list
+- thread_block()
+- [after returned]
+- enable interrupt
 
+===========
+in interrupt handler: 
+[interrupt is disabled] 
+- check on the sleep_list
+- wake up those lazy boys
+- put them into the ready_list
 
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?
+
+The sleep_list is sorted, with the earliest ot be wake up at the begining. So at each timer interrupt, it is not needed to iterate through the whole list. 
+
 
 ---- SYNCHRONIZATION ----
 
 >> A4: How are race conditions avoided when multiple threads call
 >> timer_sleep() simultaneously?
+Interrupt is disabled before any critical instructions. So only one thread is allowed to access the wait_thread and modify it at one time.
+
+However, in a SMP multithreaded machine, synchronization on the sleep_list is needed if it is a global object
 
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
+Interrupt will be disabled in critical steps. 
+
 
 ---- RATIONALE ----
 
 >> A6: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
 Alternative 1:
-Another way could be implementing a list keeping track of each thread's 
-awoken time. Check the awoken time at each timer slice, and put it back
-to running if it is time.
+Leave the thread in the ready_list, and check each of them when considering which one to run by the scheduler. 
+--
+Current implementation is better in this design since it does not mess up with the ready_list. 
 
-This is more costly, in space (a list to maintain) and in time (more checking).
-
+Alternative 2: 
+Use an unsorted sleep_list. This will result O(n) in every single invocation of the timer interrupt. 
+--
+Current implementation has greater cost on inserting element into the list. But allows O(1) for removal and avoids unnecessary iterations during timer interrupt. So it will be better with more frequent timer interrupts and less invocations of timer_sleep()
 
 
 PRIORITY SCHEDULING
