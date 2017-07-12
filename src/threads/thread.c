@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -70,9 +71,11 @@ static struct thread *next_thread_to_run (void);
 static void init_thread (struct thread *, const char *name, int priority);
 static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
+static bool should_wakeup(struct list_elem *, int64_t);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -321,6 +324,30 @@ thread_yield (void)
   intr_set_level (old_level);
 }
 
+static bool 
+wakeup_early (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
+{
+    const struct thread *a = list_entry(a_, struct thread, sleep_elem);
+    const struct thread *b = list_entry(b_, struct thread, sleep_elem);
+
+    return a->wake_up_time < b->wake_up_time;
+}
+
+/* Thread Sleeps for a {ticks} number of CPU ticks. */
+void
+thread_sleep(int64_t ticks)
+{
+    struct thread * cur = thread_current();
+    enum intr_level old_level = intr_disable();
+
+    cur->wake_up_time = ticks + timer_ticks();
+    list_insert_ordered(&sleep_list,&cur->sleep_elem, wakeup_early, NULL);
+    thread_block();
+    intr_set_level(old_level);
+
+}
+
+
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
 void
@@ -549,6 +576,23 @@ thread_schedule_tail (struct thread *prev)
     }
 }
 
+/* Move threads in the sleep_list to ready_list */
+static void
+wake_threads_up(void) 
+{
+    struct list_elem *e;
+    struct thread * t; 
+    int64_t cur_tick = timer_ticks();
+
+    while(should_wakeup(list_begin(&sleep_list), cur_tick))
+    {
+        e = list_pop_front(&sleep_list);
+        t = list_entry(e, struct thread, sleep_elem);
+        
+        thread_unblock(t);
+    }
+}
+
 /* Schedules a new process.  At entry, interrupts must be off and
    the running process's state must have been changed from
    running to some other state.  This function finds another
@@ -563,6 +607,7 @@ schedule (void)
   /* Update the ready list by dequeing from sleep_list */
   wake_threads_up(); 
 
+
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
@@ -576,20 +621,17 @@ schedule (void)
   thread_schedule_tail (prev);
 }
 
-static void
-wake_threads_up(void) 
+
+/* Return if a thread should wake up now */
+static bool
+should_wakeup(struct list_elem *e, int64_t now) 
 {
-    struct list_elem *e;
-    struct thread * t; 
-    while(should_wakeup(list_begin(&sleep_list)))
-    {
-        e = list_pop_front(&sleep_list);
-        t = list_entry(e, struct thread, sleep_elem);
-        
-        t->status = THREAD_BLOCKED;
-        list_push_back(&ready_list, &t->elem);
-    }
+    if(e == list_end(&sleep_list)) return false;
+
+    struct thread *t = list_entry(e, struct thread, sleep_elem);
+    return t->wake_up_time <= now;
 }
+
 
 /* Returns a tid to use for a new thread. */
 static tid_t
