@@ -73,6 +73,7 @@ static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static bool should_wakeup(struct list_elem *, int64_t);
 static void schedule (void);
+static void wake_threads_up(void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
@@ -147,6 +148,9 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+  
+  /* Update the ready list by dequeing from sleep_list */
+  wake_threads_up(); 
 }
 
 /* Prints thread statistics. */
@@ -603,11 +607,6 @@ wake_threads_up(void)
 static void
 schedule (void) 
 {
-
-  /* Update the ready list by dequeing from sleep_list */
-  wake_threads_up(); 
-
-
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
