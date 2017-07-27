@@ -72,6 +72,7 @@ static void init_thread (struct thread *, const char *name, int priority);
 static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static bool should_wakeup(struct list_elem *, int64_t);
+static bool compare_priority(const struct list_elem*, const struct list_elem *, void *);
 static void schedule (void);
 static void wake_threads_up(void);
 void thread_schedule_tail (struct thread *prev);
@@ -399,6 +400,19 @@ thread_get_priority (void)
     return thread_current ()->priority;
 }
 
+struct thread*
+thread_dequeue_ready_list(struct thread *t) 
+{
+    struct thread *next = list_remove(&t->elem);
+    return next;
+}
+
+void 
+thread_queue_ready_list(struct thread *t)
+{
+    list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL);
+}
+
 /* Sets the current thread's nice value to NICE. */
     void
 thread_set_nice (int nice UNUSED) 
@@ -518,6 +532,7 @@ init_thread (struct thread *t, const char *name, int priority)
     t->priority = priority;
     t->static_priority = priority;
     t->magic = THREAD_MAGIC;
+    t->waiting_lock = NULL;
 
     old_level = intr_disable ();
     list_push_back (&all_list, &t->allelem);
