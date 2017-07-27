@@ -195,10 +195,36 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
+  
+  struct thread* holder = lock->holder;
+  
+  if (holder != NULL) {
+        lock_donate_priority_to(holder, thread_current()->priority);
+  }
 
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
 }
+
+static void
+lock_donate_priority_to(struct thread* donee, int new_priority)
+{
+    if(donee->priority >= new_priority) return;
+
+    if(donee->status == THREAD_READY) {
+        //re-order the donee
+        donee->priority = new_priority;
+        thread_dequeue_ready_list (donee);
+        thread_queue_ready_list (donee);
+        return;
+    } 
+
+    if(donee->status == THREAD_BLOCKED && donee->waiting_lock != NULL) {
+        lock_donate_priority_to(donee->waiting_lock->holder, new_priority);
+    }
+}
+
+
 
 /* Tries to acquires LOCK and returns true if successful or false
    on failure.  The lock must not already be held by the current

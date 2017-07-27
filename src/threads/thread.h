@@ -90,6 +90,7 @@ struct thread
     int priority;                       /* Priority. */
     int64_t wake_up_time;               /* Wake up time from sleep */
     struct list_elem allelem;           /* List element for all threads list. */
+    struct lock *waiting_lock;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -99,7 +100,7 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 #endif
-
+    
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
@@ -135,6 +136,9 @@ void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
+
+void thread_dequeue_ready_list (struct thread *);
+void thread_queue_ready_list (struct thread *);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
