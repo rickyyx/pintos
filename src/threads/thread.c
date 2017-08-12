@@ -72,7 +72,6 @@ static void init_thread (struct thread *, const char *name, int priority);
 static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static bool should_wakeup(struct list_elem *, int64_t);
-static bool compare_priority(const struct list_elem*, const struct list_elem *, void *);
 static void schedule (void);
 static void wake_threads_up(void);
 void thread_schedule_tail (struct thread *prev);
@@ -252,7 +251,7 @@ thread_unblock (struct thread *t)
 
     old_level = intr_disable ();
     ASSERT (t->status == THREAD_BLOCKED);
-    list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL);
+    list_insert_ordered(&ready_list, &t->elem, thread_compare_priority, NULL);
     t->status = THREAD_READY;
     intr_set_level (old_level);
 }
@@ -323,7 +322,7 @@ thread_yield (void)
 
     old_level = intr_disable ();
     if (cur != idle_thread) 
-        list_insert_ordered(&ready_list, &cur->elem, compare_priority, NULL);
+        list_insert_ordered(&ready_list, &cur->elem, thread_compare_priority, NULL);
     cur->status = THREAD_READY;
     schedule ();
     intr_set_level (old_level);
@@ -338,13 +337,13 @@ wakeup_early (const struct list_elem *a_, const struct list_elem *b_, void *aux 
     return a->wake_up_time < b->wake_up_time;
 }
 
-    static bool
-compare_priority(const struct list_elem* a_, const struct list_elem *b_, void *aux UNUSED)
+bool
+thread_compare_priority(const struct list_elem* a_, const struct list_elem *b_, void *aux UNUSED)
 {
     const struct thread *a = list_entry(a_, struct thread, elem);
     const struct thread *b = list_entry(b_, struct thread, elem);
 
-    return a->priority >= b->priority;
+    return a->priority > b->priority;
 }
 
 /* Thread Sleeps for a {ticks} number of CPU ticks. */
@@ -386,7 +385,7 @@ thread_set_priority (int new_priority)
     thread_current ()->priority = new_priority;
     thread_current ()->static_priority = new_priority;
 
-    struct thread * max_priority_thread = list_head(&ready_list);
+    struct thread * max_priority_thread = list_entry(list_head(&ready_list), struct thread, elem);
 
     if (max_priority_thread->priority > new_priority){
         thread_yield();
@@ -400,17 +399,21 @@ thread_get_priority (void)
     return thread_current ()->priority;
 }
 
+
+/* P1: Remove thread t from the ready list */
 struct thread*
 thread_dequeue_ready_list(struct thread *t) 
 {
-    struct thread *next = list_remove(&t->elem);
+    struct thread *next = list_entry(list_remove(&t->elem), struct thread, elem);
     return next;
 }
 
-void 
+
+/* P1: Add thread t to the ready list with ordered */
+    void 
 thread_queue_ready_list(struct thread *t)
 {
-    list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL);
+    list_insert_ordered(&ready_list, &t->elem, thread_compare_priority, NULL);
 }
 
 /* Sets the current thread's nice value to NICE. */
