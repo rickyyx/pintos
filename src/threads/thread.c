@@ -430,6 +430,7 @@ thread_queue_ready_list(struct thread *t)
 void
 thread_restore_priority(struct thread * t)
 {
+   if(list_empty(&t->donors)) return;
    struct thread * max_donor = list_entry(list_back(&t->donors), struct thread, donor_elem);
    thread_set_priority(max_donor->priority);
 }

@@ -228,7 +228,7 @@ lock_donate_priority_to(struct thread* donee, int new_priority)
         thread_queue_ready_list (donee);
 
         //add donor to donee's list
-        list_push_back(&donee->donors, &thread_current()->donor_elem);
+        list_insert_ordered(&donee->donors, &thread_current()->donor_elem, thread_less_priority, NULL);
         return;
     } 
 
