@@ -386,27 +386,51 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
-/* Sets the current thread's priority to NEW_PRIORITY. */
+/* Sets the current thread's priority to NEW_PRIORITY.
+ * However, it cannot reset the donation. 
+ * */
     void
 thread_set_priority (int new_priority) 
 {
     struct thread * cur = thread_current();
-    cur->priority = new_priority;
-    cur->static_priority = new_priority;
     
-    if(list_empty(&ready_list)) return;
+    //Set the static priority
+    cur->static_priority = new_priority;
 
-    struct thread * max_priority_thread = list_entry(list_back(&ready_list), struct thread, elem);
-    if (max_priority_thread->priority > new_priority){
+    //Determine its effective priority
+    cur->priority = thread_get_priority(); 
+    
+
+    //Yield if no longer highest priority
+    if(!thread_has_highest_priority()){
         thread_yield();
     }
 }
 
-/* Returns the current thread's priority. */
+/* Returns if the current thread has higher priority than all
+ * ready therads */
+bool 
+thread_has_highest_priority()
+{
+    if(list_empty(&ready_list)) {
+        return true;
+    } else {
+        return thread_current()->priority >= list_entry(list_back(&ready_list), struct thread, elem)->priority;
+    }
+}
+
+/* Returns the current thread's priority (Taking into account donation) . */
     int
 thread_get_priority (void) 
 {
-    return thread_current ()->priority;
+    struct thread * cur  = thread_current();
+
+    if(list_empty(&cur->donors)){
+        return cur->static_priority;
+    } else {
+        struct thread* max_donor = list_entry(list_back(&cur->donors), struct thread, donor_elem);
+        return cur->static_priority > max_donor->priority ? cur->static_priority : max_donor->priority;
+    }
 }
 
 
@@ -426,14 +450,6 @@ thread_queue_ready_list(struct thread *t)
     list_insert_ordered(&ready_list, &t->elem, thread_less_priority, NULL);
 }
 
-/* Restores the priority of a thread to the maximal of its donors if any */
-void
-thread_restore_priority(struct thread * t)
-{
-   if(list_empty(&t->donors)) return;
-   struct thread * max_donor = list_entry(list_back(&t->donors), struct thread, donor_elem);
-   thread_set_priority(max_donor->priority);
-}
 
 /* Sets the current thread's nice value to NICE. */
     void

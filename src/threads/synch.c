@@ -224,11 +224,11 @@ lock_donate_priority_to(struct thread* donee, int new_priority)
     if(donee->status == THREAD_READY) {
         //re-order the donee
         donee->priority = new_priority;
-        thread_dequeue_ready_list (donee);
-        thread_queue_ready_list (donee);
-
         //add donor to donee's list
         list_insert_ordered(&donee->donors, &thread_current()->donor_elem, thread_less_priority, NULL);
+
+        thread_dequeue_ready_list (donee);
+        thread_queue_ready_list (donee);
         return;
     } 
 
@@ -278,9 +278,14 @@ lock_release (struct lock *lock)
     wakened_thread = sema_up (&lock->semaphore);
     if(wakened_thread != NULL) {
         wakened_thread->waiting_lock = NULL;
+        
         if(list_find(&wakened_thread->donor_elem, &cur_thread->donors)) {
             list_remove(&wakened_thread->donor_elem);
-            thread_restore_priority(cur_thread);
+            cur_thread->priority = thread_get_priority();
+            
+            while(!thread_has_highest_priority()){
+                thread_yield();
+            }
         }
     }
 }

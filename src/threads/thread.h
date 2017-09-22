@@ -144,13 +144,12 @@ void thread_foreach (thread_action_func *, void *);
 //P1
 int thread_get_priority (void);
 void thread_set_priority (int);
-
+bool thread_has_highest_priority(void);
 
 bool thread_less_priority(const struct list_elem*, const struct list_elem*, void *);
 
 struct thread* thread_dequeue_ready_list (struct thread *);
 void thread_queue_ready_list (struct thread *);
-void thread_restore_priority(struct thread*);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
