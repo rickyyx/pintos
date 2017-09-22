@@ -91,10 +91,16 @@ struct thread
     int static_priority;                /* Priority not affected by donation */
     int64_t wake_up_time;               /* Wake up time from sleep */
     struct list_elem allelem;           /* List element for all threads list. */
-    struct lock *waiting_lock;          /* Lock which the thread is waiting for */
-
+    
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+
+    //P1
+    struct lock *waiting_lock;          /* Lock which the thread is waiting for */
+    struct list donors;                 /* doners list wiht priority higher than t. */
+    struct list_elem donor_elem;        /* List element for donors list, one list only*/
+    struct list_elem waiter_elem;       /* List element for waiter list,one list only*/ 
+
     
     struct list_elem sleep_elem;        /* Sleep List element */
 #ifdef USERPROG
@@ -135,13 +141,16 @@ void thread_sleep(int64_t);
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
+//P1
 int thread_get_priority (void);
 void thread_set_priority (int);
 
-bool thread_compare_priority(const struct list_elem*, const struct list_elem*, void *);
+
+bool thread_less_priority(const struct list_elem*, const struct list_elem*, void *);
 
 struct thread* thread_dequeue_ready_list (struct thread *);
 void thread_queue_ready_list (struct thread *);
+void thread_restore_priority(struct thread*);
 
 int thread_get_nice (void);
 void thread_set_nice (int);

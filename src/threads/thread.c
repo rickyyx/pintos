@@ -256,7 +256,7 @@ thread_unblock (struct thread *t)
 
     old_level = intr_disable ();
     ASSERT (t->status == THREAD_BLOCKED);
-    list_insert_ordered(&ready_list, &t->elem, thread_compare_priority, NULL);
+    list_insert_ordered(&ready_list, &t->elem, thread_less_priority, NULL);
     t->status = THREAD_READY;
     intr_set_level (old_level);
 }
@@ -327,7 +327,7 @@ thread_yield (void)
 
     old_level = intr_disable ();
     if (cur != idle_thread) 
-        list_insert_ordered(&ready_list, &cur->elem, thread_compare_priority, NULL);
+        list_insert_ordered(&ready_list, &cur->elem, thread_less_priority, NULL);
     cur->status = THREAD_READY;
     schedule ();
     intr_set_level (old_level);
@@ -342,13 +342,16 @@ wakeup_early (const struct list_elem *a_, const struct list_elem *b_, void *aux 
     return a->wake_up_time < b->wake_up_time;
 }
 
+
+/* Returns true when a has greater priority, meaning a will be placed before b 
+ */
 bool
-thread_compare_priority(const struct list_elem* a_, const struct list_elem *b_, void *aux UNUSED)
+thread_less_priority(const struct list_elem* a_, const struct list_elem *b_, void *aux UNUSED)
 {
     const struct thread *a = list_entry(a_, struct thread, elem);
     const struct thread *b = list_entry(b_, struct thread, elem);
 
-    return a->priority > b->priority;
+    return a->priority < b->priority;
 }
 
 /* Thread Sleeps for a {ticks} number of CPU ticks. */
@@ -393,7 +396,7 @@ thread_set_priority (int new_priority)
     
     if(list_empty(&ready_list)) return;
 
-    struct thread * max_priority_thread = list_entry(list_front(&ready_list), struct thread, elem);
+    struct thread * max_priority_thread = list_entry(list_back(&ready_list), struct thread, elem);
     if (max_priority_thread->priority > new_priority){
         thread_yield();
     }
@@ -420,7 +423,15 @@ thread_dequeue_ready_list(struct thread *t)
     void 
 thread_queue_ready_list(struct thread *t)
 {
-    list_insert_ordered(&ready_list, &t->elem, thread_compare_priority, NULL);
+    list_insert_ordered(&ready_list, &t->elem, thread_less_priority, NULL);
+}
+
+/* Restores the priority of a thread to the maximal of its donors if any */
+void
+thread_restore_priority(struct thread * t)
+{
+   struct thread * max_donor = list_entry(list_back(&t->donors), struct thread, donor_elem);
+   thread_set_priority(max_donor->priority);
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -544,6 +555,8 @@ init_thread (struct thread *t, const char *name, int priority)
     t->magic = THREAD_MAGIC;
     t->waiting_lock = NULL;
 
+    list_init(&t->donors);
+
     old_level = intr_disable ();
     list_push_back (&all_list, &t->allelem);
     intr_set_level (old_level);
@@ -573,7 +586,7 @@ next_thread_to_run (void)
     if (list_empty (&ready_list))
         return idle_thread;
     else
-        return list_entry (list_pop_front (&ready_list), struct thread, elem);
+        return list_entry (list_pop_back (&ready_list), struct thread, elem);
 }
 
 /* Completes a thread switch by activating the new thread's page
