@@ -121,7 +121,6 @@ sema_up (struct semaphore *sema)
         wakingup_thread = list_entry(list_pop_back(&sema->waiters), struct thread, waiter_elem);
         thread_unblock(wakingup_thread);
     }
-    // thread_unblock (list_entry (list_pop_front (&sema->waiters),struct thread, elem));
     sema->value++;
     intr_set_level (old_level);
     return wakingup_thread;
@@ -208,6 +207,7 @@ lock_acquire (struct lock *lock)
     if (holder != NULL) {
         cur->waiting_lock = lock;
         lock_donate_priority_to(holder, cur->priority);
+        list_push_back(&holder->donors, &thread_current()->donor_elem);        
     }
 
     sema_down (&lock->semaphore);
@@ -221,12 +221,10 @@ lock_donate_priority_to(struct thread* donee, int new_priority)
 
     if(donee->priority >= new_priority) return;
 
-    if(donee->status == THREAD_READY) {
-        //re-order the donee
-        donee->priority = new_priority;
-        //add donor to donee's list
-        list_insert_ordered(&donee->donors, &thread_current()->donor_elem, thread_less_priority, NULL);
+    //re-order the donee
+    donee->priority = new_priority;
 
+    if(donee->status == THREAD_READY) {
         thread_dequeue_ready_list (donee);
         thread_queue_ready_list (donee);
         return;
@@ -278,11 +276,11 @@ lock_release (struct lock *lock)
     wakened_thread = sema_up (&lock->semaphore);
     if(wakened_thread != NULL) {
         wakened_thread->waiting_lock = NULL;
-        
+
         if(list_find(&wakened_thread->donor_elem, &cur_thread->donors)) {
             list_remove(&wakened_thread->donor_elem);
             cur_thread->priority = thread_get_priority();
-            
+
             while(!thread_has_highest_priority()){
                 thread_yield();
             }

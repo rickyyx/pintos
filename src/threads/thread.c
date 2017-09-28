@@ -428,7 +428,8 @@ thread_get_priority (void)
     if(list_empty(&cur->donors)){
         return cur->static_priority;
     } else {
-        struct thread* max_donor = list_entry(list_back(&cur->donors), struct thread, donor_elem);
+        struct list_elem* max_elem = list_max(&cur->donors, thread_less_priority, NULL);
+        struct thread* max_donor = list_entry(max_elem, struct thread, donor_elem);
         return cur->static_priority > max_donor->priority ? cur->static_priority : max_donor->priority;
     }
 }
