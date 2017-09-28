@@ -343,16 +343,30 @@ wakeup_early (const struct list_elem *a_, const struct list_elem *b_, void *aux 
 }
 
 
-/* Returns true when a has greater priority, meaning a will be placed before b 
+/* Returns true when a has greater priority, meaning a will be placed before b
+ * for ready_list
  */
 bool
-thread_less_priority(const struct list_elem* a_, const struct list_elem *b_, void *aux UNUSED)
+thread_less_priority(const struct list_elem* a_, const struct list_elem *b_, void * list_name)
 {
-    const struct thread *a = list_entry(a_, struct thread, elem);
-    const struct thread *b = list_entry(b_, struct thread, elem);
+    enum list_type type = *(enum list_type) list_name;
+    const struct thread *a;
+    const struct thread *b;
+
+    switch(*type){
+        case ELEM:
+            a = list_entry(a_, struct thread, elem);
+            b = list_entry(b_, struct thread, elem);
+            break;
+        default:
+            a = list_entry(a_, struct thread, elem);
+            b = list_entry(b_, struct thread, elem);
+            break;
+    }
 
     return a->priority < b->priority;
 }
+
 
 /* Thread Sleeps for a {ticks} number of CPU ticks. */
     void
@@ -424,12 +438,14 @@ thread_has_highest_priority()
 thread_get_priority (void) 
 {
     struct thread * cur  = thread_current();
+    struct list_elem* max_elem;
+    struct thread* max_donor;
 
     if(list_empty(&cur->donors)){
         return cur->static_priority;
     } else {
-        struct list_elem* max_elem = list_max(&cur->donors, thread_less_priority, NULL);
-        struct thread* max_donor = list_entry(max_elem, struct thread, donor_elem);
+        max_elem = list_max(&cur->donors, thread_less_priority, NULL);
+        max_donor = list_entry(max_elem, struct thread, donor_elem);
         return cur->static_priority > max_donor->priority ? cur->static_priority : max_donor->priority;
     }
 }

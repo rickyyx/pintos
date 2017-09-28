@@ -14,6 +14,15 @@ enum thread_status
     THREAD_DYING        /* About to be destroyed. */
   };
 
+
+//P1
+/* Thread list types */
+enum list_type
+{
+    ELEM,
+    DONOR_LIST
+};
+
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
