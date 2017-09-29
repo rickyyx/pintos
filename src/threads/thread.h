@@ -20,7 +20,8 @@ enum thread_status
 enum list_type
 {
     ELEM,
-    DONOR_LIST
+    DONOR,
+    WAITER
 };
 
 /* Thread identifier type.

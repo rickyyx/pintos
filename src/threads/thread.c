@@ -214,7 +214,7 @@ thread_create (const char *name, int priority,
 
     /* Add to run queue. */
     thread_unblock (t);
-    
+
     /* Schedule with higher priority thread */
     if(thread_current()->priority < priority) {
         thread_yield();        
@@ -346,22 +346,28 @@ wakeup_early (const struct list_elem *a_, const struct list_elem *b_, void *aux 
 /* Returns true when a has greater priority, meaning a will be placed before b
  * for ready_list
  */
-bool
+    bool
 thread_less_priority(const struct list_elem* a_, const struct list_elem *b_, void * list_name)
 {
-    enum list_type type = *(enum list_type) list_name;
+
     const struct thread *a;
     const struct thread *b;
 
-    switch(*type){
-        case ELEM:
-            a = list_entry(a_, struct thread, elem);
-            b = list_entry(b_, struct thread, elem);
-            break;
-        default:
-            a = list_entry(a_, struct thread, elem);
-            b = list_entry(b_, struct thread, elem);
-            break;
+    a = list_entry(a_, struct thread, elem);
+    b = list_entry(b_, struct thread, elem); 
+
+    if(list_name != NULL){
+        switch(*(enum list_type*) list_name){
+            case DONOR:
+                a = list_entry(a_, struct thread, donor_elem);
+                b = list_entry(b_, struct thread, donor_elem); 
+                break;
+            case WAITER:
+                a = list_entry(a_, struct thread, waiter_elem);
+                b = list_entry(b_, struct thread, waiter_elem); 
+            case ELEM:
+                break;
+        }
     }
 
     return a->priority < b->priority;
@@ -407,13 +413,13 @@ thread_foreach (thread_action_func *func, void *aux)
 thread_set_priority (int new_priority) 
 {
     struct thread * cur = thread_current();
-    
+
     //Set the static priority
     cur->static_priority = new_priority;
 
     //Determine its effective priority
     cur->priority = thread_get_priority(); 
-    
+
 
     //Yield if no longer highest priority
     if(!thread_has_highest_priority()){
@@ -423,7 +429,7 @@ thread_set_priority (int new_priority)
 
 /* Returns if the current thread has higher priority than all
  * ready therads */
-bool 
+    bool 
 thread_has_highest_priority()
 {
     if(list_empty(&ready_list)) {
@@ -452,7 +458,7 @@ thread_get_priority (void)
 
 
 /* P1: Remove thread t from the ready list */
-struct thread*
+    struct thread*
 thread_dequeue_ready_list(struct thread *t) 
 {
     struct thread *next = list_entry(list_remove(&t->elem), struct thread, elem);
