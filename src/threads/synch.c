@@ -112,13 +112,17 @@ This function may be called from an interrupt handler. */
 sema_up (struct semaphore *sema) 
 {
     enum intr_level old_level;
+    enum list_type type = WAITER;
     struct thread* wakingup_thread = NULL;
+    struct list_elem * wakingup_elem;
 
     ASSERT (sema != NULL);
 
     old_level = intr_disable ();
     if (!list_empty (&sema->waiters)) {
-        wakingup_thread = list_entry(list_max(&sema->waiters, thread_less_priority, NULL), struct thread, waiter_elem);
+        wakingup_elem = list_max(&sema->waiters, thread_less_priority, &type);
+        wakingup_thread = list_entry(wakingup_elem, struct thread, waiter_elem);
+        list_remove(wakingup_elem);
         thread_unblock(wakingup_thread);
     }
     sema->value++;
