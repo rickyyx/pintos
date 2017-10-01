@@ -360,17 +360,18 @@ thread_less_priority(const struct list_elem* a_, const struct list_elem *b_, voi
         switch(*(enum list_type*) list_name){
             case DONOR:
                 a = list_entry(a_, struct thread, donor_elem);
-                b = list_entry(b_, struct thread, donor_elem); 
-                break;
+                b = list_entry(b_, struct thread, donor_elem);         
+                return a->priority < b->priority;
             case WAITER:
                 a = list_entry(a_, struct thread, waiter_elem);
                 b = list_entry(b_, struct thread, waiter_elem); 
-            case ELEM:
+                return a->priority <= b->priority;
+            default:
                 break;
         }
     }
 
-    return a->priority < b->priority;
+    return a->priority <= b->priority;
 }
 
 

@@ -126,7 +126,12 @@ sema_up (struct semaphore *sema)
         thread_unblock(wakingup_thread);
     }
     sema->value++;
+
     intr_set_level (old_level);
+    if(!thread_has_highest_priority()){
+        thread_yield();
+    }
+
     return wakingup_thread;
 }
 
@@ -280,12 +285,14 @@ lock_release (struct lock *lock)
     wakened_thread = sema_up (&lock->semaphore);
     if(wakened_thread != NULL) {
         wakened_thread->waiting_lock = NULL;
-
+        
+        //Remove the wakened_thread from cur's donor list -> adjust the cur's thread
+        //priority -> it might yield if it has no longer top priority
         if(list_find(&wakened_thread->donor_elem, &cur_thread->donors)) {
             list_remove(&wakened_thread->donor_elem);
             cur_thread->priority = thread_get_priority();
 
-            while(!thread_has_highest_priority()){
+            if(!thread_has_highest_priority()){
                 thread_yield();
             }
         }
