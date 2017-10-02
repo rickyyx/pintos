@@ -106,9 +106,8 @@ sema_try_down (struct semaphore *sema)
 
 //P1
 It returns the wakened up thread if any, otherwise null
-
 This function may be called from an interrupt handler. */
-    struct thread*
+    void
 sema_up (struct semaphore *sema) 
 {
     enum intr_level old_level;
@@ -132,7 +131,6 @@ sema_up (struct semaphore *sema)
         thread_yield();
     }
 
-    return wakingup_thread;
 }
 
 static void sema_test_helper (void *sema_);
@@ -274,29 +272,26 @@ lock_try_acquire (struct lock *lock)
     void
 lock_release (struct lock *lock) 
 {
-    struct thread * wakened_thread;
-    struct thread * cur_thread = thread_current();
+    struct list_elem * e;
+    struct thread* t;
+    struct list * waiters = &lock->semaphore.waiters;
+
     ASSERT (lock != NULL);
     ASSERT (lock_held_by_current_thread (lock));
 
     lock->holder = NULL;
-
-    // get the highest priority waiter of the lock, which will be waken.
-    wakened_thread = sema_up (&lock->semaphore);
-    if(wakened_thread != NULL) {
-        wakened_thread->waiting_lock = NULL;
-        
-        //Remove the wakened_thread from cur's donor list -> adjust the cur's thread
-        //priority -> it might yield if it has no longer top priority
-        if(list_find(&wakened_thread->donor_elem, &cur_thread->donors)) {
-            list_remove(&wakened_thread->donor_elem);
-            cur_thread->priority = thread_get_priority();
-
-            if(!thread_has_highest_priority()){
-                thread_yield();
+    if(!list_empty(&thread_current()->donors)){
+        for(e = list_begin(waiters); e != list_end(waiters); e = list_next(e)) {
+            t = list_entry(e, struct thread, waiter_elem);
+            if(t->waiting_lock == lock){
+                //thread t is waiting on the lock -> it must be a donor of the cur
+                list_remove(&t->donor_elem);
             }
         }
     }
+    thread_current()->priority = thread_get_priority();
+    // get the highest priority waiter of the lock, which will be waken.
+    sema_up (&lock->semaphore);
 }
 
 

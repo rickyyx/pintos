@@ -127,13 +127,32 @@ So the removal from the front will always be the one with the highest priority.
 
 >> B4: Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
-The current lock holder will have its priority changed. (original_priority is set)  
+IF NOT a free lock:
+    donate priority to holder, and holder's donees as well
+ELSE:
+    do nothing 
+Sema_down on lock's semaphore
+(Got the lock)
+Set the lock's holder
+
+** Handling nested donation 
+priority donation will be propogated through the holder's chain. The current lock holder will have its priority changed.   
 If the lock holder is locked by another lock LK, LK's current holder will recursively change its priority as well. 
+If the lock holder is currently in the ready list, it needs to be re-queued to reflect change of the priority.
+
 
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
-The threads with the highest priority should wake up. 
-The lock's current holder should have its priority restored. 
+a. When higher-priority thread is waiting for 
+1. Remove all those threads waiting for the lock(aka, threads in the waiter list of the semaphore) from the thread's donors
+2. Wake up a thread 
+(It might get yielded before returning from sema_up) 
+
+b. When lower-priority thread is waiting for it. 
+Same thing happens.
+
+c. When no thread waiting for it. 
+Then no thread will be deleted from its donors list
 
 
 ---- SYNCHRONIZATION ----
