@@ -306,12 +306,6 @@ lock_held_by_current_thread (const struct lock *lock)
     return lock->holder == thread_current ();
 }
 
-/* One semaphore in a list. */
-struct semaphore_elem 
-{
-    struct list_elem elem;              /* List element. */
-    struct semaphore semaphore;         /* This semaphore. */
-};
 
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
@@ -354,6 +348,7 @@ cond_wait (struct condition *cond, struct lock *lock)
     ASSERT (!intr_context ());
     ASSERT (lock_held_by_current_thread (lock));
 
+    waiter.t = thread_current();
     sema_init (&waiter.semaphore, 0);
     list_push_back (&cond->waiters, &waiter.elem);
     lock_release (lock);
@@ -375,11 +370,31 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
     ASSERT (lock != NULL);
     ASSERT (!intr_context ());
     ASSERT (lock_held_by_current_thread (lock));
+    struct list_elem * sema_elem_p;
 
-    if (!list_empty (&cond->waiters)) 
-        sema_up (&list_entry (list_pop_front (&cond->waiters),
-                    struct semaphore_elem, elem)->semaphore);
+    if (!list_empty (&cond->waiters)) {
+        sema_elem_p = list_max(&cond->waiters, cond_sema_less_priority, NULL);
+        list_remove(sema_elem_p);
+        sema_up(&list_entry(sema_elem_p,struct semaphore_elem, elem)->semaphore);
+    }
+    //    sema_up (&list_entry (list_pop_front (&cond->waiters),               struct semaphore_elem, elem)->semaphore);
 }
+
+
+//P1
+/* Comparison function to sort the waiters on a condition based 
+ * on its thread's priority */
+
+bool
+cond_sema_less_priority(const struct list_elem * a_, const struct list_elem* b_, void* AUX UNUSED)
+{
+    const struct semaphore_elem* sema_elem_a = list_entry(a_,struct semaphore_elem, elem);
+
+    const struct semaphore_elem* sema_elem_b = list_entry(b_,struct semaphore_elem, elem);
+
+    return sema_elem_a->t->priority <= sema_elem_b->t->priority;
+}
+
 
 /* Wakes up all threads, if any, waiting on COND (protected by
    LOCK).  LOCK must be held before calling this function.
