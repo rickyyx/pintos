@@ -105,12 +105,12 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-    //P1
+    //P1-2
     struct lock *waiting_lock;          /* Lock which the thread is waiting for */
     struct list donors;                 /* doners list wiht priority higher than t. */
     struct list_elem donor_elem;        /* List element for donors list, one list only*/
     struct list_elem waiter_elem;       /* List element for waiter list,one list only*/ 
-
+    
     
     struct list_elem sleep_elem;        /* Sleep List element */
 #ifdef USERPROG

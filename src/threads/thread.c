@@ -63,6 +63,12 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
+#define MLFQS_RQ_SIZE PRI_MAX-PRI_MIN+1
+static list rq[MLFQS_RQ_SIZE];
+
+static void init_rq();
+
+
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
@@ -97,7 +103,10 @@ thread_init (void)
     ASSERT (intr_get_level () == INTR_OFF);
 
     lock_init (&tid_lock);
-    list_init (&ready_list);
+    if(!thread_mlfqs)
+        list_init (&ready_list);
+    else 
+        init_rq();
     list_init (&all_list);
     list_init (&sleep_list);
 
@@ -108,6 +117,16 @@ thread_init (void)
     initial_thread->tid = allocate_tid ();
     initial_thread->wake_up_time = 0;
 
+}
+
+/* Initializes the run queue for MLFQS scheduling */
+void
+init_rq(void)
+{
+    int i;
+    for(i = 0; i<MLFQS_RQ_SIZE; i++) {
+        list_init(&rq[i]);
+    }
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
