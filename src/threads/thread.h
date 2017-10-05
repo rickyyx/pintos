@@ -34,6 +34,11 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+/* Thread niceness. */
+#define NICE_DEFAULT 0                  /* Default nice. */
+#define NICE_MIN -20                    /* Lowest nice. */
+#define NICE_MAX 20                     /* Highest nice. */
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -111,6 +116,9 @@ struct thread
     struct list_elem donor_elem;        /* List element for donors list, one list only*/
     struct list_elem waiter_elem;       /* List element for waiter list,one list only*/ 
     
+    //P1-3
+    int32_t recent_cpu;                 /* Per-thread recent_cpu data */
+    int nice;                           /* What a good guy */
     
     struct list_elem sleep_elem;        /* Sleep List element */
 #ifdef USERPROG

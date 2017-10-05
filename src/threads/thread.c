@@ -67,14 +67,16 @@ bool thread_mlfqs;
 static struct list rq[MLFQS_RQ_SIZE];
 
 static void init_rq(void);
-
+static void thread_calpri(void);
+static void thread_update_rq(struct thread * UNUSED);
+static bool thread_mlfqs_highest_priority(void);
 
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
 static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
-static void init_thread (struct thread *, const char *name, int priority);
+static void init_thread (struct thread *, const char *name, int priority, int nice);
 static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static bool should_wakeup(struct list_elem *, int64_t);
@@ -112,7 +114,7 @@ thread_init (void)
 
     /* Set up a thread structure for the running thread. */
     initial_thread = running_thread ();
-    init_thread (initial_thread, "main", PRI_DEFAULT);
+    init_thread (initial_thread, "main", PRI_DEFAULT, NICE_DEFAULT);
     initial_thread->status = THREAD_RUNNING;
     initial_thread->tid = allocate_tid ();
     initial_thread->wake_up_time = 0;
@@ -213,7 +215,7 @@ thread_create (const char *name, int priority,
         return TID_ERROR;
 
     /* Initialize thread. */
-    init_thread (t, name, priority);
+    init_thread (t, name, priority, thread_current()->nice);
     tid = t->tid = allocate_tid ();
 
     /* Stack frame for kernel_thread(). */
@@ -434,6 +436,9 @@ thread_foreach (thread_action_func *func, void *aux)
 thread_set_priority (int new_priority) 
 {
     struct thread * cur = thread_current();
+    
+    //MLFQS enabled, ignore set priority
+    if(thread_mlfqs) return;
 
     //Set the static priority
     cur->static_priority = new_priority;
@@ -468,6 +473,9 @@ thread_get_priority (void)
     struct list_elem* max_elem;
     struct thread* max_donor;
     enum list_type type = DONOR;
+    
+    if(thread_mlfqs)
+        return cur->priority;
 
     if(list_empty(&cur->donors)){
         return cur->static_priority;
@@ -498,17 +506,40 @@ thread_queue_ready_list(struct thread *t)
 
 /* Sets the current thread's nice value to NICE. */
     void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
-    /* Not yet implemented. */
+  struct thread * cur = thread_current(); 
+   cur->nice = nice;
+   thread_calpri(); 
+   thread_update_rq(cur);
+
+   if(!thread_mlfqs_highest_priority())
+       thread_yield();
+}
+
+static void
+thread_calpri(void)
+{
+    return;
+}
+
+static void
+thread_update_rq(struct thread * t UNUSED)
+{
+   return; 
+}
+
+static bool
+thread_mlfqs_highest_priority(void)
+{
+    return false;
 }
 
 /* Returns the current thread's nice value. */
     int
 thread_get_nice (void) 
 {
-    /* Not yet implemented. */
-    return 0;
+    return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
@@ -600,7 +631,7 @@ is_thread (struct thread *t)
 /* Does basic initialization of T as a blocked thread named
    NAME. */
     static void
-init_thread (struct thread *t, const char *name, int priority)
+init_thread (struct thread *t, const char *name, int priority, int nice)
 {
     enum intr_level old_level;
 
@@ -616,6 +647,7 @@ init_thread (struct thread *t, const char *name, int priority)
     t->static_priority = priority;
     t->magic = THREAD_MAGIC;
     t->waiting_lock = NULL;
+    t->nice = nice;
 
     list_init(&t->donors);
 
