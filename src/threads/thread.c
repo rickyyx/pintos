@@ -64,9 +64,9 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
 bool thread_mlfqs;
 
 #define MLFQS_RQ_SIZE PRI_MAX-PRI_MIN+1
-static list rq[MLFQS_RQ_SIZE];
+static struct list rq[MLFQS_RQ_SIZE];
 
-static void init_rq();
+static void init_rq(void);
 
 
 static void kernel_thread (thread_func *, void *aux);
