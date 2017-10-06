@@ -68,8 +68,10 @@ static struct list rq[MLFQS_RQ_SIZE];
 
 static void init_rq(void);
 static void thread_calpri(void);
-static void thread_update_rq(struct thread * UNUSED);
+static void thread_update_rq(struct thread *);
 static bool thread_mlfqs_highest_priority(void);
+static void thread_mlfqs_deque(struct thread *);
+static void thread_mlfqs_enque(struct thread *);
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -524,9 +526,29 @@ thread_calpri(void)
 }
 
 static void
-thread_update_rq(struct thread * t UNUSED)
+thread_update_rq(struct thread * t)
 {
-   return; 
+   thread_mlfqs_deque(t);
+   thread_mlfqs_enque(t);
+}
+
+static void
+thread_mlfqs_deque(struct thread *t)
+{
+    ASSERT(is_thread(t));
+    ASSERT(t->priority <= PRI_MAX && t->priority >= PRI_MIN);
+
+    list_remove(&t->elem);
+}
+
+static void
+thread_mlfqs_enque(struct thread *t)
+{
+    ASSERT(is_thread(t));
+    ASSERT(t->priority <= PRI_MAX && t->priority >= PRI_MIN);
+
+    struct list q = rq[t->priority];
+    list_push_back(&q, &t->elem);
 }
 
 static bool
