@@ -72,6 +72,7 @@ static void thread_update_rq(struct thread *);
 static bool thread_mlfqs_highest_priority(void);
 static void thread_mlfqs_deque(struct thread *);
 static void thread_mlfqs_enque(struct thread *);
+static int mlfqs_highest_priority(void);
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -702,10 +703,35 @@ alloc_frame (struct thread *t, size_t size)
     static struct thread *
 next_thread_to_run (void) 
 {
-    if (list_empty (&ready_list))
-        return idle_thread;
-    else
-        return list_entry (list_pop_back (&ready_list), struct thread, elem);
+    if(!thread_mlfqs){
+        if (list_empty (&ready_list))
+            return idle_thread;
+        else
+            return list_entry (list_pop_back (&ready_list), struct thread, elem);
+    } else {
+        int runnable_pri = mlfqs_highest_priority();
+        if(runnable_pri < PRI_MIN)
+            return idle_thread;
+        else 
+            return list_entry(list_pop_front(&rq[runnable_pri]), struct thread, elem);
+    }
+}
+
+/* Returns the highest priority of the runnable threads. Return PRI_MIN-1 
+ * if there is none 
+ * Interrputs must be off
+ */
+static int 
+mlfqs_highest_priority(void){
+    int i;
+    ASSERT (intr_get_level () == INTR_OFF);
+
+    for(i = PRI_MAX; i>= PRI_MIN; i--){
+        if(!list_empty(&rq[i]))
+            return i;
+    }
+
+    return i;
 }
 
 /* Completes a thread switch by activating the new thread's page
