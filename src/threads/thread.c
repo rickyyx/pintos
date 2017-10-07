@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include "lib/fpoint.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -63,16 +64,26 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
+int32_t load_avg;
+int ready_threads_cnt;
+
 #define MLFQS_RQ_SIZE PRI_MAX-PRI_MIN+1
 static struct list rq[MLFQS_RQ_SIZE];
 
 static void init_rq(void);
-static void thread_calpri(void);
 static void thread_update_rq(struct thread *);
 static bool thread_mlfqs_highest_priority(void);
 static void thread_mlfqs_deque(struct thread *);
 static void thread_mlfqs_enque(struct thread *);
 static int mlfqs_highest_priority(void);
+static void update_cur_recent_cpu(void);
+static void update_thread_recent_cpu(struct thread *, void*);
+static void update_all_recent_cpu(void);
+static void update_load_avg(void);
+static void update_all_priority(void);
+static void update_thread_priority(struct thread*, void *);
+static int count_ready_threads(void);
+static int calcualte_priority(int);
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -114,6 +125,8 @@ thread_init (void)
         init_rq();
     list_init (&all_list);
     list_init (&sleep_list);
+
+    load_avg = F_TOFPOINT(0);
 
     /* Set up a thread structure for the running thread. */
     initial_thread = running_thread ();
@@ -168,13 +181,88 @@ thread_tick (void)
     else
         kernel_ticks++;
 
+    /* Update cur running thread's recent cpu */
+    update_cur_recent_cpu();
 
-    /* Enforce preemption. */
-    if (++thread_ticks >= TIME_SLICE)
+    /* Update load_av, all threads recent_cpu / SECOND */
+    if(timer_ticks() % TIMER_FREQ == 0 ){
+        update_load_avg();
+        update_all_recent_cpu();
+    }
+
+    /* Update piority / 4th tick */
+    if(timer_ticks() % 4 == 0)
+        update_all_priority();
+
+    /* Yield on running out of time_slice / low priority */
+    if (++thread_ticks >= TIME_SLICE || !thread_mlfqs_highest_priority())
         intr_yield_on_return ();
 
     /* Update the ready list by dequeing from sleep_list */
     wake_threads_up(); 
+}
+
+
+static void
+update_cur_recent_cpu(void)
+{
+    struct thread* t = thread_current();
+
+    if( t == idle_thread) return;
+
+    t->recent_cpu++;
+    t->recent_cpu_dirty = true;
+}
+
+static void 
+update_all_recent_cpu(void)
+{
+   thread_foreach(update_thread_recent_cpu, NULL); 
+}
+
+static void
+update_thread_recent_cpu(struct thread *t, void *aux UNUSED)
+{
+    ASSERT(is_thread(t));
+
+    if(t == idle_thread) return;
+
+    int32_t cpu = t->recent_cpu;
+    t->recent_cpu = F_ADD_INT(F_MULTIPLE(F_DIVIDE(cpu*2, F_ADD_INT(cpu*2, 1)), cpu), t->nice);
+    if(t->recent_cpu != cpu)
+        t->recent_cpu_dirty = true;
+}
+
+static void
+update_all_priority(void)
+{
+    thread_foreach(update_thread_priority, NULL);
+}
+
+static void
+update_thread_priority(struct thread *t, void *aux UNUSED)
+{
+    if(!t->recent_cpu_dirty) return;
+
+    int old_pri = t->priority;
+    t->priority = calculate_priority(old_pri);
+    ASSERT(t->priority <= PRI_MAX && t->priority >= PRI_MIN);
+
+    if(old_pri != t->priority){
+        thread_update_rq(t);
+    }
+}
+
+static void
+update_load_avg(void)
+{
+    load_avg = F_DIVIDE_INT(F_MULTIPLE_INT(load_avg, 59), 60) + F_DIVIDE_INT(F_TOFPOINT(count_ready_threads()), 60);
+}
+
+static int
+count_ready_threads(void)
+{
+    return ready_threads_cnt;
 }
 
 /* Prints thread statistics. */
@@ -516,18 +604,12 @@ thread_set_nice (int nice)
 {
   struct thread * cur = thread_current(); 
    cur->nice = nice;
-   thread_calpri(); 
-   thread_update_rq(cur);
+   update_thread_priority(cur, NULL); 
 
    if(!thread_mlfqs_highest_priority())
        thread_yield();
 }
 
-static void
-thread_calpri(void)
-{
-    return;
-}
 
 static void
 thread_update_rq(struct thread * t)

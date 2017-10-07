@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define F_PAD (1>>14)
+#define F_PAD (1<<14)
 
 #define F_TOFPOINT(x) ((x)*F_PAD)
 #define F_TOINT_ZERO(x) ((x) / F_PAD)

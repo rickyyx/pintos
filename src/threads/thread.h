@@ -119,7 +119,9 @@ struct thread
     //P1-3
     int32_t recent_cpu;                 /* Per-thread recent_cpu data */
     int nice;                           /* What a good guy */
-    
+    bool recent_cpu_dirty;              /* Whether recent_cpu has changed */
+    /* Enforce preemption. */
+
     struct list_elem sleep_elem;        /* Sleep List element */
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
