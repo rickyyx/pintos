@@ -125,11 +125,14 @@ thread_init (void)
         init_rq();
     list_init (&all_list);
     list_init (&sleep_list);
-
+    
+    /* Init load_avg at begininng */
     load_avg = F_TOFPOINT(0);
 
     /* Set up a thread structure for the running thread. */
     initial_thread = running_thread ();
+
+    /* Init the main thread with default values for scheduling */
     init_thread (initial_thread, "main", PRI_DEFAULT, NICE_DEFAULT, F_TOFPOINT(0));
     initial_thread->status = THREAD_RUNNING;
     initial_thread->tid = allocate_tid ();
