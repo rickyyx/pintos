@@ -183,7 +183,8 @@ thread_tick (void)
 #endif
     else
         kernel_ticks++;
-
+    
+    if(thread_mlfqs){
     /* Update cur running thread's recent cpu */
     update_cur_recent_cpu();
 
@@ -196,9 +197,13 @@ thread_tick (void)
     /* Update piority / 4th tick */
     if(timer_ticks() % 4 == 0)
         update_all_priority();
+    
+    if(!thread_mlfqs_highest_priority())
+        intr_yield_on_return();
+    }
 
     /* Yield on running out of time_slice / low priority */
-    if (++thread_ticks >= TIME_SLICE || !thread_mlfqs_highest_priority())
+    if (++thread_ticks >= TIME_SLICE)
         intr_yield_on_return ();
 
     /* Update the ready list by dequeing from sleep_list */
@@ -342,7 +347,6 @@ thread_create (const char *name, int priority,
     thread_unblock (t);
 
     /* Schedule with higher priority thread */
-    //TODO
     if(thread_current()->priority < priority) {
         thread_yield();        
     }
@@ -655,7 +659,10 @@ thread_mlfqs_enque(struct thread *t)
 static bool
 thread_mlfqs_highest_priority(void)
 {
-    return false;
+    struct thread * cur = thread_current();
+    int highest = mlfqs_highest_priority();
+
+    return cur->priority >= highest;
 }
 
 /* Returns the current thread's nice value. */
@@ -669,16 +676,15 @@ thread_get_nice (void)
     int
 thread_get_load_avg (void) 
 {
-    /* Not yet implemented. */
-    return 0;
+    return (int) F_TOINT_NEAR(load_avg) * 100;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
     int
 thread_get_recent_cpu (void) 
 {
-    /* Not yet implemented. */
-    return 0;
+    struct thread * cur = thread_current();
+    return (int) F_TOINT_NEAR(cur->recent_cpu) * 100;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
