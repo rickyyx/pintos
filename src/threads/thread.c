@@ -67,7 +67,7 @@ bool thread_mlfqs;
 int32_t load_avg;
 int ready_threads_cnt;
 
-#define MLFQS_RQ_SIZE PRI_MAX-PRI_MIN+1
+#define MLFQS_RQ_SIZE 64
 static struct list rq[MLFQS_RQ_SIZE];
 
 static void init_rq(void);
@@ -145,7 +145,8 @@ void
 init_rq(void)
 {
     int i;
-    for(i = 0; i<MLFQS_RQ_SIZE; i++) {
+    int rq_size = MLFQS_RQ_SIZE;
+    for(i = 0; i<rq_size; i++) {
         list_init(&rq[i]);
     }
 }
@@ -198,7 +199,7 @@ thread_tick (void)
     if(timer_ticks() % 4 == 0)
         update_all_priority();
     
-    if(!thread_mlfqs_highest_priority())
+    if(!thread_has_highest_priority())
         intr_yield_on_return();
     }
 
@@ -461,8 +462,13 @@ thread_yield (void)
     ASSERT (!intr_context ());
 
     old_level = intr_disable ();
-    if (cur != idle_thread) 
-        list_insert_ordered(&ready_list, &cur->elem, thread_less_priority, NULL);
+    if (cur != idle_thread) {
+        if(!thread_mlfqs)
+            list_insert_ordered(&ready_list, &cur->elem, thread_less_priority, NULL);
+        else {
+            thread_mlfqs_enque(cur);
+        }
+    }
     cur->status = THREAD_READY;
     schedule ();
     intr_set_level (old_level);
@@ -571,6 +577,9 @@ thread_set_priority (int new_priority)
     bool 
 thread_has_highest_priority()
 {
+    if(thread_mlfqs)
+        return thread_mlfqs_highest_priority();
+
     if(list_empty(&ready_list)) {
         return true;
     } else {
@@ -625,7 +634,7 @@ thread_set_nice (int nice)
    cur->nice = nice;
    update_thread_priority(cur, NULL); 
 
-   if(!thread_mlfqs_highest_priority())
+   if(!thread_has_highest_priority())
        thread_yield();
 }
 
@@ -832,7 +841,6 @@ next_thread_to_run (void)
 static int 
 mlfqs_highest_priority(void){
     int i;
-    ASSERT (intr_get_level () == INTR_OFF);
 
     for(i = PRI_MAX; i>= PRI_MIN; i--){
         if(!list_empty(&rq[i]))
