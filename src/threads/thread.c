@@ -83,14 +83,14 @@ static void update_load_avg(void);
 static void update_all_priority(void);
 static void update_thread_priority(struct thread*, void *);
 static int count_ready_threads(void);
-static int calcualte_priority(int);
+static int calculate_priority(struct thread *);
 
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
 static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
-static void init_thread (struct thread *, const char *name, int priority, int nice);
+static void init_thread (struct thread *, const char *name, int, int, int32_t);
 static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static bool should_wakeup(struct list_elem *, int64_t);
@@ -130,7 +130,7 @@ thread_init (void)
 
     /* Set up a thread structure for the running thread. */
     initial_thread = running_thread ();
-    init_thread (initial_thread, "main", PRI_DEFAULT, NICE_DEFAULT);
+    init_thread (initial_thread, "main", PRI_DEFAULT, NICE_DEFAULT, F_TOFPOINT(0));
     initial_thread->status = THREAD_RUNNING;
     initial_thread->tid = allocate_tid ();
     initial_thread->wake_up_time = 0;
@@ -245,12 +245,22 @@ update_thread_priority(struct thread *t, void *aux UNUSED)
     if(!t->recent_cpu_dirty) return;
 
     int old_pri = t->priority;
-    t->priority = calculate_priority(old_pri);
+    t->priority = calculate_priority(t);
     ASSERT(t->priority <= PRI_MAX && t->priority >= PRI_MIN);
 
     if(old_pri != t->priority){
         thread_update_rq(t);
     }
+}
+
+static int
+calculate_priority(struct thread *t)
+{
+    int pri = PRI_MAX-(t->nice *2) - F_TOINT_NEAR(F_DIVIDE_INT(t->recent_cpu, 4));
+    if(pri > PRI_MAX) return PRI_MAX;
+    if(pri < PRI_MIN) return PRI_MIN;
+
+    return pri;
 }
 
 static void
@@ -292,7 +302,7 @@ thread_print_stats (void)
 thread_create (const char *name, int priority,
         thread_func *function, void *aux) 
 {
-    struct thread *t;
+    struct thread *t, *cur;
     struct kernel_thread_frame *kf;
     struct switch_entry_frame *ef;
     struct switch_threads_frame *sf;
@@ -306,7 +316,8 @@ thread_create (const char *name, int priority,
         return TID_ERROR;
 
     /* Initialize thread. */
-    init_thread (t, name, priority, thread_current()->nice);
+    cur = thread_current();
+    init_thread (t, name, priority, cur->nice,cur->recent_cpu);
     tid = t->tid = allocate_tid ();
 
     /* Stack frame for kernel_thread(). */
@@ -328,6 +339,7 @@ thread_create (const char *name, int priority,
     thread_unblock (t);
 
     /* Schedule with higher priority thread */
+    //TODO
     if(thread_current()->priority < priority) {
         thread_yield();        
     }
@@ -739,7 +751,7 @@ is_thread (struct thread *t)
 /* Does basic initialization of T as a blocked thread named
    NAME. */
     static void
-init_thread (struct thread *t, const char *name, int priority, int nice)
+init_thread (struct thread *t, const char *name, int priority, int nice, int32_t recent_cpu)
 {
     enum intr_level old_level;
 
@@ -751,11 +763,16 @@ init_thread (struct thread *t, const char *name, int priority, int nice)
     t->status = THREAD_BLOCKED;
     strlcpy (t->name, name, sizeof t->name);
     t->stack = (uint8_t *) t + PGSIZE;
-    t->priority = priority;
-    t->static_priority = priority;
     t->magic = THREAD_MAGIC;
     t->waiting_lock = NULL;
+
     t->nice = nice;
+    t->recent_cpu = recent_cpu;
+
+    if(thread_mlfqs)
+        priority = calculate_priority(t);
+    t->priority = priority;
+    t->static_priority = priority;
 
     list_init(&t->donors);
 
