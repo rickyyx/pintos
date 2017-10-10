@@ -664,8 +664,9 @@ thread_mlfqs_enque(struct thread *t)
     ASSERT(is_thread(t));
     ASSERT(t->priority <= PRI_MAX && t->priority >= PRI_MIN);
 
-    struct list q = rq[t->priority];
-    list_push_back(&q, &t->elem);
+    list_push_back(&rq[t->priority], &t->elem);
+
+    return;
 }
 
 static bool
