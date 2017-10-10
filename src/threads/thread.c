@@ -127,6 +127,7 @@ thread_init (void)
     list_init (&sleep_list);
     
     /* Init load_avg at begininng */
+    ready_threads_cnt = 1;
     load_avg = F_TOFPOINT(0);
 
     /* Set up a thread structure for the running thread. */
@@ -368,6 +369,7 @@ thread_block (void)
     ASSERT (intr_get_level () == INTR_OFF);
 
     thread_current ()->status = THREAD_BLOCKED;
+    ready_threads_cnt--;
     schedule ();
 }
 
@@ -394,6 +396,7 @@ thread_unblock (struct thread *t)
         thread_mlfqs_enque(t);
     t->waiting_lock = NULL;
     t->status = THREAD_READY;
+    ready_threads_cnt++;
     intr_set_level (old_level);
 }
 
