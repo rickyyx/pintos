@@ -292,9 +292,10 @@ count_ready_threads(void)
 
     for(i = 0, count = 0;i< MLFQS_RQ_SIZE; i++)
         count +=(int) list_size(&rq[i]);
-    ready_threads_cnt = count+1;    
-
-    return count+1;
+    
+    if(thread_current() != idle_thread)
+        count++;
+    return count;
 }
 
 /* Prints thread statistics. */
