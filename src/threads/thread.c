@@ -42,6 +42,7 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
+
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
 {
@@ -118,17 +119,15 @@ thread_init (void)
 {
     ASSERT (intr_get_level () == INTR_OFF);
 
+
     lock_init (&tid_lock);
     if(!thread_mlfqs)
         list_init (&ready_list);
-    else 
+    else {
         init_rq();
+    }
     list_init (&all_list);
     list_init (&sleep_list);
-    
-    /* Init load_avg at begininng */
-    ready_threads_cnt = 1;
-    load_avg = F_TOFPOINT(0);
 
     /* Set up a thread structure for the running thread. */
     initial_thread = running_thread ();
@@ -139,6 +138,10 @@ thread_init (void)
     initial_thread->tid = allocate_tid ();
     initial_thread->wake_up_time = 0;
 
+    
+    /* Init load_avg at begininng */
+   // ready_threads_cnt = 1;
+    load_avg = F_TOFPOINT(0);
 }
 
 /* Initializes the run queue for MLFQS scheduling */
@@ -161,7 +164,9 @@ thread_start (void)
     struct semaphore idle_started;
     sema_init (&idle_started, 0);
     thread_create ("idle", PRI_MIN, idle, &idle_started);
-
+    
+    /* Re-adjust ready cnt here */
+    //ready_threads_cnt--;
     /* Start preemptive thread scheduling. */
     intr_enable ();
 
@@ -186,6 +191,8 @@ thread_tick (void)
     else
         kernel_ticks++;
     
+    /* Update the ready list by dequeing from sleep_list */
+    wake_threads_up(); 
     if(thread_mlfqs){
     /* Update cur running thread's recent cpu */
     update_cur_recent_cpu();
@@ -208,8 +215,6 @@ thread_tick (void)
     if (++thread_ticks >= TIME_SLICE)
         intr_yield_on_return ();
 
-    /* Update the ready list by dequeing from sleep_list */
-    wake_threads_up(); 
 }
 
 
@@ -220,7 +225,7 @@ update_cur_recent_cpu(void)
 
     if( t == idle_thread) return;
 
-    t->recent_cpu++;
+    t->recent_cpu = F_ADD_INT(t->recent_cpu, 1);
     t->recent_cpu_dirty = true;
 }
 
@@ -238,7 +243,7 @@ update_thread_recent_cpu(struct thread *t, void *aux UNUSED)
     if(t == idle_thread) return;
 
     int32_t cpu = t->recent_cpu;
-    t->recent_cpu = F_ADD_INT(F_MULTIPLE(F_DIVIDE(cpu*2, F_ADD_INT(cpu*2, 1)), cpu), t->nice);
+    t->recent_cpu = F_ADD_INT(F_MULTIPLE(F_DIVIDE(load_avg*2, F_ADD_INT(load_avg*2, 1)), cpu), t->nice);
     if(t->recent_cpu != cpu)
         t->recent_cpu_dirty = true;
 }
@@ -282,7 +287,12 @@ update_load_avg(void)
 static int
 count_ready_threads(void)
 {
-    return ready_threads_cnt;
+    int i, count;
+
+    for(i = 0, count = 0;i< MLFQS_RQ_SIZE; i++)
+        count +=(int) list_size(&rq[i]);
+    
+    return count+1;
 }
 
 /* Prints thread statistics. */
@@ -367,9 +377,8 @@ thread_block (void)
 {
     ASSERT (!intr_context ());
     ASSERT (intr_get_level () == INTR_OFF);
-
-    thread_current ()->status = THREAD_BLOCKED;
-    ready_threads_cnt--;
+    struct thread * cur =thread_current();
+    cur->status = THREAD_BLOCKED;
     schedule ();
 }
 
@@ -396,7 +405,6 @@ thread_unblock (struct thread *t)
         thread_mlfqs_enque(t);
     t->waiting_lock = NULL;
     t->status = THREAD_READY;
-    ready_threads_cnt++;
     intr_set_level (old_level);
 }
 
@@ -440,6 +448,7 @@ thread_exit (void)
 {
     ASSERT (!intr_context ());
 
+    struct thread * running;
 #ifdef USERPROG
     process_exit ();
 #endif
@@ -449,7 +458,9 @@ thread_exit (void)
        when it calls thread_schedule_tail(). */
     intr_disable ();
     list_remove (&thread_current()->allelem);
-    thread_current ()->status = THREAD_DYING;
+    running = thread_current();
+    running->status = THREAD_DYING;
+    //ready_threads_cnt--;
     schedule ();
     NOT_REACHED ();
 }
@@ -695,11 +706,10 @@ thread_get_load_avg (void)
 /* Returns 100 times the current thread's recent_cpu value. */
     int
 thread_get_recent_cpu (void) 
-{
+{ 
     struct thread * cur = thread_current();
     return (int) F_TOINT_NEAR(cur->recent_cpu) * 100;
 }
-
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
@@ -715,7 +725,7 @@ idle (void *idle_started_ UNUSED)
     struct semaphore *idle_started = idle_started_;
     idle_thread = thread_current ();
     sema_up (idle_started);
-
+    
     for (;;) 
     {
         /* Let someone else run. */
