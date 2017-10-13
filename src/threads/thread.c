@@ -141,7 +141,6 @@ thread_init (void)
     
     /* Init load_avg at begininng */
    // ready_threads_cnt = 1;
-    load_avg = F_TOFPOINT(0);
 }
 
 /* Initializes the run queue for MLFQS scheduling */
@@ -172,6 +171,7 @@ thread_start (void)
 
     /* Wait for the idle thread to initialize idle_thread. */
     sema_down (&idle_started);
+    load_avg = F_TOFPOINT(0);
 }
 
 /* Called by the timer interrupt handler at each timer tick.
@@ -194,8 +194,6 @@ thread_tick (void)
     /* Update the ready list by dequeing from sleep_list */
     wake_threads_up(); 
     if(thread_mlfqs){
-    /* Update cur running thread's recent cpu */
-    update_cur_recent_cpu();
 
     /* Update load_av, all threads recent_cpu / SECOND */
     if(timer_ticks() % TIMER_FREQ == 0 ){
@@ -207,6 +205,9 @@ thread_tick (void)
     if(timer_ticks() % 4 == 0)
         update_all_priority();
     
+    /* Update cur running thread's recent cpu */
+    update_cur_recent_cpu();
+
     if(!thread_has_highest_priority())
         intr_yield_on_return();
     }
@@ -291,7 +292,8 @@ count_ready_threads(void)
 
     for(i = 0, count = 0;i< MLFQS_RQ_SIZE; i++)
         count +=(int) list_size(&rq[i]);
-    
+    ready_threads_cnt = count+1;    
+
     return count+1;
 }
 
@@ -656,7 +658,8 @@ thread_set_nice (int nice)
 static void
 thread_update_rq(struct thread * t)
 {
-   thread_mlfqs_deque(t);
+   if(t->status != THREAD_READY) return; 
+    thread_mlfqs_deque(t);
    thread_mlfqs_enque(t);
 }
 
@@ -700,7 +703,7 @@ thread_get_nice (void)
     int
 thread_get_load_avg (void) 
 {
-    return (int) F_TOINT_NEAR(load_avg) * 100;
+    return (int) F_TOINT_NEAR(F_MULTIPLE_INT(load_avg,  100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -708,7 +711,7 @@ thread_get_load_avg (void)
 thread_get_recent_cpu (void) 
 { 
     struct thread * cur = thread_current();
-    return (int) F_TOINT_NEAR(cur->recent_cpu) * 100;
+    return (int) F_TOINT_NEAR(F_MULTIPLE_INT(cur->recent_cpu, 100));
 }
 /* Idle thread.  Executes when no other thread is ready to run.
 
