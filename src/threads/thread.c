@@ -133,7 +133,8 @@ thread_init (void)
     initial_thread = running_thread ();
 
     /* Init the main thread with default values for scheduling */
-    init_thread (initial_thread, "main", PRI_DEFAULT, NICE_DEFAULT, F_TOFPOINT(0));
+    init_thread (initial_thread, "main", 
+            PRI_DEFAULT, NICE_DEFAULT, F_TOFPOINT(0));
     initial_thread->status = THREAD_RUNNING;
     initial_thread->tid = allocate_tid ();
     initial_thread->wake_up_time = 0;
@@ -145,7 +146,8 @@ init_rq(void)
 {
     int i;
     int rq_size = MLFQS_RQ_SIZE;
-    for(i = 0; i<rq_size; i++) {
+    for(i = 0; i<rq_size; i++) 
+    {
         list_init(&rq[i]);
     }
 }
@@ -159,7 +161,7 @@ thread_start (void)
     struct semaphore idle_started;
     sema_init (&idle_started, 0);
     thread_create ("idle", PRI_MIN, idle, &idle_started);
-
+    
     /* Start preemptive thread scheduling. */
     intr_enable ();
 
@@ -243,10 +245,8 @@ update_thread_recent_cpu(struct thread *t, void *aux UNUSED)
     if(t == idle_thread) return;
 
     int32_t cpu = t->recent_cpu;
-    t->recent_cpu = F_ADD_INT(F_MULTIPLE(F_DIVIDE(load_avg*2, F_ADD_INT(load_avg*2, 1)), cpu), t->nice);
-
-    // Mark recent_cpu as dirty, recalculation of priority is 
-    // required 
+    t->recent_cpu = F_ADD_INT(F_MULTIPLE(F_DIVIDE(load_avg*2,
+                    F_ADD_INT(load_avg*2, 1)), cpu), t->nice);
     if(t->recent_cpu != cpu)
         t->recent_cpu_dirty = true;
 }
@@ -281,8 +281,8 @@ update_thread_priority(struct thread *t, void *aux UNUSED)
     static int
 calculate_priority(struct thread *t)
 {
-    int pri = PRI_MAX-(t->nice *2) - F_TOINT_NEAR(F_DIVIDE_INT(t->recent_cpu, 4));
-
+    int pri = (PRI_MAX-(t->nice *2) 
+            - F_TOINT_NEAR(F_DIVIDE_INT(t->recent_cpu, 4)));
     // Bound the priority with PRI_MAX and PRI_MIN
     if(pri > PRI_MAX) return PRI_MAX;
     if(pri < PRI_MIN) return PRI_MIN;
@@ -295,7 +295,8 @@ calculate_priority(struct thread *t)
     static void
 update_load_avg(void)
 {
-    load_avg = F_DIVIDE_INT(F_MULTIPLE_INT(load_avg, 59), 60) + F_DIVIDE_INT(F_TOFPOINT(count_ready_threads()), 60);
+    load_avg =(F_DIVIDE_INT(F_MULTIPLE_INT(load_avg, 59), 60) 
+            + F_DIVIDE_INT(F_TOFPOINT(count_ready_threads()), 60));
 }
 
 /* Count the number of ready threads in the system. 
@@ -510,7 +511,8 @@ thread_yield (void)
  * Threads with a smaller wake_up_time should be in front */
 
     static bool 
-wakeup_early (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
+wakeup_early (const struct list_elem *a_, const struct list_elem *b_,
+        void *aux UNUSED)
 {
     const struct thread *a = list_entry(a_, struct thread, sleep_elem);
     const struct thread *b = list_entry(b_, struct thread, sleep_elem);
@@ -619,7 +621,8 @@ thread_has_highest_priority()
     if(list_empty(&ready_list)) {
         return true;
     } else {
-        return thread_current()->priority >= list_entry(list_back(&ready_list), struct thread, elem)->priority;
+        return thread_current()->priority >= list_entry(list_back(&ready_list),
+                struct thread, elem)->priority;
     }
 }
 
@@ -640,9 +643,9 @@ thread_get_priority (void)
     } else {
         max_elem = list_max(&cur->donors, thread_less_priority, &type);
         max_donor = list_entry(max_elem, struct thread, donor_elem);
-
-        //Return max(max_donor->priority, cur-static_priority)
-        return cur->static_priority > max_donor->priority ? cur->static_priority : max_donor->priority;
+        return ((cur->static_priority > max_donor->priority) ?
+                cur->static_priority 
+                : max_donor->priority);
     }
 }
 
@@ -813,7 +816,8 @@ is_thread (struct thread *t)
 /* Does basic initialization of T as a blocked thread named
    NAME. */
     static void
-init_thread (struct thread *t, const char *name, int priority, int nice, int32_t recent_cpu)
+init_thread (struct thread *t, const char *name, int priority, int nice,
+        int32_t recent_cpu)
 {
     enum intr_level old_level;
 
@@ -874,7 +878,8 @@ next_thread_to_run (void)
         if(runnable_pri < PRI_MIN)
             return idle_thread;
         else 
-            return list_entry(list_pop_front(&rq[runnable_pri]), struct thread, elem);
+            return list_entry(list_pop_front(&rq[runnable_pri]), 
+                    struct thread, elem);
     }
 }
 

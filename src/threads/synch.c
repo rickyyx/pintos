@@ -285,7 +285,8 @@ lock_release (struct lock *lock)
         for(e = list_begin(waiters); e != list_end(waiters); e = list_next(e)) {
             t = list_entry(e, struct thread, waiter_elem);
             if(t->waiting_lock == lock){
-                //thread t is waiting on the lock -> it must be a donor of the cur
+                //thread t is waiting on the lock 
+                //-> it must be a donor of the cur
                 list_remove(&t->donor_elem);
             }
         }
@@ -377,7 +378,8 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
     if (!list_empty (&cond->waiters)) {
         sema_elem_p = list_max(&cond->waiters, cond_sema_less_priority, NULL);
         list_remove(sema_elem_p);
-        sema_up(&list_entry(sema_elem_p,struct semaphore_elem, elem)->semaphore);
+        sema_up(&list_entry(sema_elem_p,struct semaphore_elem, elem)
+                ->semaphore);
     }
 }
 
@@ -385,10 +387,13 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
 /* Comparison function to sort the waiters on a condition based 
  * on its thread's priority */
 bool
-cond_sema_less_priority(const struct list_elem * a_, const struct list_elem* b_, void* AUX UNUSED)
+cond_sema_less_priority(const struct list_elem * a_, const struct list_elem* b_,
+        void* AUX UNUSED)
 {
-    const struct semaphore_elem* sema_elem_a = list_entry(a_,struct semaphore_elem, elem);
-    const struct semaphore_elem* sema_elem_b = list_entry(b_,struct semaphore_elem, elem);
+    const struct semaphore_elem* sema_elem_a = list_entry(a_,
+            struct semaphore_elem, elem);
+    const struct semaphore_elem* sema_elem_b = list_entry(b_,
+            struct semaphore_elem, elem);
 
     return sema_elem_a->t->priority <= sema_elem_b->t->priority;
 }
