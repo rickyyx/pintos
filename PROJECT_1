@@ -3,7 +3,6 @@
 |   DESIGN DOCUMENT  |
 +--------------------+
 
-
 ALARM CLOCK
 ===========
 
@@ -13,10 +12,11 @@ ALARM CLOCK
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-+/* List of processes in THREAD_SLEEP state */
-+static struct list sleep_list;
-
-
+<thread.h>
+struct thread {
++    int64_t wake_up_time;               /* Wake up time from sleep */
++    struct list_elem sleep_elem;        /* Sleep List element */
+}
 
 ---- ALGORITHMS ----
 
@@ -26,8 +26,7 @@ ALARM CLOCK
 It will put the current thread to the wait_list;
 then blocked the current thread by calling thread_block();
 
-Details:
-(Calling thread_sleep)
+thread_sleep():
 - get current thread
 - disable interrupt 
 - calculate wake up ticks 
@@ -36,17 +35,6 @@ Details:
 - [after returned]
 - enable interrupt
 
-===========
-schedule():
-[interrupt is disabled] 
-- check on the sleep_list
-- wake up those lazy boys
-- put them into the ready_list
-
-
-==========
-in timer interrupt: 
-nothing is added. 
 
 
 >> A3: What steps are taken to minimize the amount of time spent in
@@ -68,6 +56,7 @@ However, in a SMP multithreaded machine, synchronization on the sleep_list is ne
 
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
+
 Interrupt will be disabled in critical steps. 
 
 
@@ -75,6 +64,7 @@ Interrupt will be disabled in critical steps.
 
 >> A6: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+
 Alternative 1:
 Leave the thread in the ready_list, and check each of them when considering which one to run by the scheduler. 
 --
@@ -100,12 +90,101 @@ PRIORITY SCHEDULING
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+<thread.h>
+struct thread {
++    struct lock *waiting_lock;          /* Lock which the thread is waiting for */
++    struct list donors;                 /* doners list wiht priority higher than t. */
++    struct list_elem donor_elem;        /* List element for donors list, one list only*/
++    struct list_elem waiter_elem;       /* List element for waiter list,one list only*/ 
++    int static_priority;                /* Priority not affected by donation */
+}
+-----
+/* Thread list types */
++enum list_type
++{
++    ELEM,               /* For ready list scheduling in struct thread */
++    DONOR,              /* For donor list in struct thread*/
++    WAITER              /* For waiter list in struct semaphore */
++};
+
+<synch.h>
+/* One semaphore in a list. */
++struct semaphore_elem 
++{
++    struct list_elem elem;              /* List element. */
++    struct semaphore semaphore;         /* This semaphore. */
++    struct thread * t;                  /* Thread waiting on this semaphore */
++};
 
 
 >> B2: Explain the data structure used to track priority donation.
 >> Use ASCII art to diagram a nested donation.  (Alternately, submit a
         >> .png file.)
 1. Thread TL running, acquiring Lock L1
+
+
+     ╔══════════════════╗
+     ║                  ║
+     ║ TL               ║
+     ║ priority = 30    ║
+     ║ static_pri = 30  ║        ╔══════════╗
+     ║                  ║        ║L1        ║
+     ║ waiting_lock=null║        ║waiters=[]║
+     ║ donors = []      ║        ║holder= TL║
+     ╚══════════════════╝        ╚════|═════╝
+             ^------------------------+
+                  acquired by
+
+ 
+2. Thread TM running, acquiring Lock L2, blocked on acquiring Lock L1.
+   Thread TM donates to TL.
+
+     ╔═══════════════╗          ╔═════════════════╗
+     ║TM             ║          ║TL               ║
+     ║               ║          ║                 ║
+     ║pri = 31       ║          ║pri=31           ║
+     ║static_pri = 31║ donates  ║static_pri = 30  ║
+     ║               ║--------> ║                 ║
+     ║waiting_lock=L1║          ║waiting_lock=null║
+     ║donors=[]      ║-------+  ║donors=[TM]      ║
+     ║               ║       |  ║                 ║
+     ╚═══════════════╝       |  ╚═════════════════╝
+              ^              |        ^
+              | acquired by  |        |acquired by
+         ╔══════════╗        |   ╔══════════╗    
+         ║L2        ║   block|   ║L1        ║    
+         ║waiters   ║   on   |   ║waiters   ║    
+         ║ = []     ║        +-> ║ = [TM]   ║    
+         ║holder= TM║            ║holder= TL║    
+         ╚══════════╝            ╚══════════╝    
+
+
+
+
+3. Thread TH running, blocked on acquiring lock L2.
+   Thread TH donates to TM;
+   TM blocks -> TH's priority propogated to TL -> TL resets priority
+ ╔═══════════════╗      ╔═══════════════╗      ╔═══════════════╗
+ ║TH             ║      ║TM             ║      ║TL             ║
+ ║               ║      ║               ║      ║               ║
+ ║pri = 32       ║donate║pri = 32       ║donate║pri = 32       ║
+ ║static_pri = 32║----> ║static_pri = 31║----->║static_pri = 30║
+ ║               ║      ║               ║      ║               ║
+ ║waiting_lock=L2║      ║waiting_lock=L1║      ║waiting_lock=L1║
+ ║donors=[]      ║      ║donors=[TH]    ║      ║donors=[TM]    ║
+ ║               ║      ║               ║      ║               ║
+ ╚═══════════════╝      ╚═══════════════╝      ╚═══════════════╝
+           |         acquired^    |blocks             ^ acquired by
+    blocks |         by      |    |on                 |
+    on     +--+          +---+    +----+              |
+              v          |             v              |
+          ╔══════════╗   |       ╔══════════╗         |
+          ║L2        ║   |       ║L1        ║         |
+          ║waiters   ║---+       ║waiters   ║ --------+
+          ║ = [TH]   ║           ║ = [TM]   ║
+          ║holder= TM║           ║holder= TL║
+          ╚══════════╝           ╚══════════╝
+
 
 
 
@@ -120,24 +199,31 @@ So the removal from the front will always be the one with the highest priority.
 
 >> B4: Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
-IF NOT a free lock:
-    donate priority to holder, and holder's donees as well
-ELSE:
-    do nothing 
-Sema_down on lock's semaphore
+
+1. IF NOT a free lock:
+2.   recursively donate priority to holder, and holder's donees as well.
+     (however, donor-donee relationship is not propogated recursively)
+3. ELSE:
+4.    do nothing 
+5.Sema_down on lock's semaphore
 (Got the lock)
-Set the lock's holder
+6. Set the lock's holder
 
 ** Handling nested donation 
-priority donation will be propogated through the holder's chain. The current lock holder will have its priority changed.   
-If the lock holder is locked by another lock LK, LK's current holder will recursively change its priority as well. 
-If the lock holder is currently in the ready list, it needs to be re-queued to reflect change of the priority.
+priority donation will be propogated through the holder's chain. The current
+lock holder will have its priority changed.   
+If the lock holder is locked by another lock LK, LK's current holder will 
+recursively change its priority as well. 
+If the lock holder is currently in the ready list, it needs to be re-queued 
+to reflect change of the priority.
 
 
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
-a. When higher-priority thread is waiting for 
-1. Remove all those threads waiting for the lock(aka, threads in the waiter list of the semaphore) from the thread's donors
+
+a. When higher-priority thread is waiting for the lock
+1. Remove all those threads waiting for the same lock(aka, threads in the waiter
+   list of the semaphore) from the thread's donors
 2. Wake up a thread 
 (It might get yielded before returning from sema_up) 
 
@@ -162,6 +248,9 @@ A lock on the read_list could be used to synchronize the modifications.
 >> B7: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
 
+The tracking of ready threads in the run queue could be further improved
+with a bit vector that tracks the emptiness of the queue. Also the number of ready threads could be tracked by a count, which needs to be syncronized if there are multiple threads running at the same time. (eg, multi-core processors) 
+
 ADVANCED SCHEDULER
 ==================
 
@@ -171,6 +260,47 @@ ADVANCED SCHEDULER
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+
+
+-----
+/* For fix point calculation */
+<fpoint.h>
++#ifndef __LIB_FPOINT_H
++#define __LIB_FPOINT_H
++
++#include <stdint.h>
++
++/* F_PAD as offset for conversion between integer and fix point number */
++#define F_PAD (1<<14)
++
++#define F_TOFPOINT(x) ((x)*F_PAD)
++#define F_TOINT_ZERO(x) ((x) / F_PAD)
++#define F_TOINT_NEAR(x) ((x) >= 0 ? ((x)+F_PAD/2)/F_PAD : ((x)-F_PAD/2)/F_PAD)
++#define F_ADD(x,y) ((x)+(y))
++#define F_SUBTRACT(x,y) ((x)-(y))
++#define F_ADD_INT(x,n) ((x)+(n)*F_PAD)
++#define F_SUBTRACT_N(x,n) ((x)-(n)*F_PAD)
++#define F_MULTIPLE(x,y) ((int64_t) (x) * (y) / F_PAD)
++#define F_MULTIPLE_INT(x,n) ((x) * (n))
++#define F_DIVIDE(x, y) ((int64_t) (x) * F_PAD / (y))
++#define F_DIVIDE_INT(x, n) ((x) / (n))
++
++#endif
+
+----
+<thread.h>
++/* Thread niceness. */
++#define NICE_DEFAULT 0                  /* Default nice. */
++#define NICE_MIN -20                    /* Lowest nice. */
++#define NICE_MAX 20                     /* Highest nice. */
+
+struct thread{
++    int32_t recent_cpu;                 /* Per-thread recent_cpu data */
++    int nice;                           /* What a good guy */
++    bool recent_cpu_dirty;              /* Whether recent_cpu has changed */
+}
+
+
 ---- ALGORITHMS ----
 
 >> C2: Suppose threads A, B, and C have nice values 0, 1, and 2.  Each
@@ -178,26 +308,23 @@ ADVANCED SCHEDULER
 >> scheduling decision and the priority and recent_cpu values for each
 >> thread after each given number of timer ticks:
 
-timer  recent_cpu    priority   thread
-ticks   A   B   C   A   B   C   to run
------  --  --  --  --  --  --   ------
-0
-4
-8
-12
-16
-20
-24
-28
-32
-36
-
 >> C3: Did any ambiguities in the scheduler specification make values
 >> in the table uncertain?  If so, what rule did you use to resolve
 >> them?  Does this match the behavior of your scheduler?
 
+Yes. For example, the sequence of each update at each time tick. 
+Is load_avg updated before recent_cpu? 
+
+My rule follows as such:
+laod_avg -> all recent_cpu -> all priority -> current recent_cpu
+
+
 >> C4: How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?
+Following the original design. Calculation happens at each timer tick. 
+However, the ready threads number could be updated outside of interrupt
+context, which is an optimization can be made to shorten the time spent
+in the context.
 
 ---- RATIONALE ----
 
@@ -206,6 +333,15 @@ ticks   A   B   C   A   B   C   to run
 >> time to work on this part of the project, how might you choose to
 >> refine or improve your design?
 
+- Improving on the data strucutre used to track the run queue is 
+  is definitely one optimization can be made. With a 64 bit int
+  tracking the emptiness of each run queue should improve time spent on
+  finding out the maximal priority
+
+- Improving on the tracking of ready counts will be another. 
+  It was not implemented due ot extra complixity in initiation the thread
+  system. 
+
 >> C6: The assignment explains arithmetic for fixed-point math in
 >> detail, but it leaves it open to you to implement it.  Why did you
 >> decide to implement it the way you did?  If you created an
@@ -213,27 +349,7 @@ ticks   A   B   C   A   B   C   to run
 >> type and/or a set of functions or macros to manipulate fixed-point
 >> numbers, why did you do so?  If not, why not?
 
-SURVEY QUESTIONS
-================
-
-Answering these questions is optional, but it will help us improve the
-course in future quarters.  Feel free to tell us anything you
-want--these questions are just to spur your thoughts.  You may also
-choose to respond anonymously in the course evaluations at the end of
-the quarter.
-
->> In your opinion, was this assignment, or any one of the three problems
->> in it, too easy or too hard?  Did it take too long or too little time?
-
->> Did you find that working on a particular part of the assignment gave
->> you greater insight into some aspect of OS design?
-
->> Is there some particular fact or hint we should give students in
->> future quarters to help them solve the problems?  Conversely, did you
->> find any of our guidance to be misleading?
-
->> Do you have any suggestions for the TAs to more effectively assist
->> students, either for future quarters or the remaining projects?
-
->> Any other comments?
+- Macros are used to perform the fixed-point math in fpoint.h. Since 
+  each operation is relatively simple. Macros are faster than functions
+  since they do not invoke function calling routines.
 

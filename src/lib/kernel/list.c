@@ -116,19 +116,6 @@ list_prev (struct list_elem *elem)
   return elem->prev;
 }
 
-//P1
-/* Returns if the target list_elem is in the list */
-bool 
-list_find(struct list_elem * target, struct list * list) 
-{
-   struct list_elem * e;
-
-   for(e = list_begin(list);  e != list_end(list) ; e = list_next(e)){
-        if(e == target) return true;
-   }
-
-   return false;
-}
 
 /* Returns LIST's head.
 
