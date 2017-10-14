@@ -136,8 +136,6 @@ struct list_elem *list_rend (struct list *);
 struct list_elem *list_head (struct list *);
 struct list_elem *list_tail (struct list *);
 
-//P1
-bool list_find(struct list_elem*, struct list *);
 
 /* List insertion. */
 void list_insert (struct list_elem *, struct list_elem *);

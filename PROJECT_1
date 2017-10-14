@@ -1,23 +1,8 @@
 +--------------------+
-|        CS 140      |
 | PROJECT 1: THREADS |
 |   DESIGN DOCUMENT  |
 +--------------------+
 
----- GROUP ----
-
->> Fill in the names and email addresses of your group members.
-
-SOLO yoyd 
-
----- PRELIMINARIES ----
-
->> If you have any preliminary comments on your submission, notes for the
->> TAs, or extra credit, please give them here.
-
->> Please cite any offline or online sources you consulted while
->> preparing your submission, other than the Pintos documentation, course
->> text, lecture notes, and course staff.
 
 ALARM CLOCK
 ===========
@@ -27,6 +12,11 @@ ALARM CLOCK
 >> A1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
+
++/* List of processes in THREAD_SLEEP state */
++static struct list sleep_list;
+
+
 
 ---- ALGORITHMS ----
 

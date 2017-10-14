@@ -103,10 +103,8 @@ sema_try_down (struct semaphore *sema)
 
 /* Up or "V" operation on a semaphore.  Increments SEMA's value
    and wakes up one thread of those waiting for SEMA, if any.
-
-//P1
-It returns the wakened up thread if any, otherwise null
-This function may be called from an interrupt handler. */
+    It returns the wakened up thread if any, otherwise null
+    This function may be called from an interrupt handler. */
     void
 sema_up (struct semaphore *sema) 
 {
@@ -221,6 +219,8 @@ lock_acquire (struct lock *lock)
     lock->holder = cur; 
 }
 
+/* Donate priority to a thread currently holding the lock 
+ * No donation when the that thread has a higher priority */
     void
 lock_donate_priority_to(struct thread* donee, int new_priority)
 {
@@ -230,13 +230,13 @@ lock_donate_priority_to(struct thread* donee, int new_priority)
 
     //re-order the donee
     donee->priority = new_priority;
-
     if(donee->status == THREAD_READY) {
         thread_dequeue_ready_list (donee);
         thread_queue_ready_list (donee);
         return;
     } 
-
+    
+    //handle nested donation
     if(donee->status == THREAD_BLOCKED && donee->waiting_lock != NULL) {
         lock_donate_priority_to(donee->waiting_lock->holder, new_priority);
     }
@@ -280,6 +280,7 @@ lock_release (struct lock *lock)
     ASSERT (lock_held_by_current_thread (lock));
 
     lock->holder = NULL;
+    //Remove all donors on the lock 
     if(!list_empty(&thread_current()->donors)){
         for(e = list_begin(waiters); e != list_end(waiters); e = list_next(e)) {
             t = list_entry(e, struct thread, waiter_elem);
@@ -371,25 +372,22 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
     ASSERT (!intr_context ());
     ASSERT (lock_held_by_current_thread (lock));
     struct list_elem * sema_elem_p;
-
+    
+    //Wake up the waiter with the greatest priority
     if (!list_empty (&cond->waiters)) {
         sema_elem_p = list_max(&cond->waiters, cond_sema_less_priority, NULL);
         list_remove(sema_elem_p);
         sema_up(&list_entry(sema_elem_p,struct semaphore_elem, elem)->semaphore);
     }
-    //    sema_up (&list_entry (list_pop_front (&cond->waiters),               struct semaphore_elem, elem)->semaphore);
 }
 
 
-//P1
 /* Comparison function to sort the waiters on a condition based 
  * on its thread's priority */
-
 bool
 cond_sema_less_priority(const struct list_elem * a_, const struct list_elem* b_, void* AUX UNUSED)
 {
     const struct semaphore_elem* sema_elem_a = list_entry(a_,struct semaphore_elem, elem);
-
     const struct semaphore_elem* sema_elem_b = list_entry(b_,struct semaphore_elem, elem);
 
     return sema_elem_a->t->priority <= sema_elem_b->t->priority;

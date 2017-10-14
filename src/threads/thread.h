@@ -15,13 +15,12 @@ enum thread_status
   };
 
 
-//P1
 /* Thread list types */
 enum list_type
 {
-    ELEM,
-    DONOR,
-    WAITER
+    ELEM,               /* For ready list scheduling in struct thread */
+    DONOR,              /* For donor list in struct thread*/
+    WAITER              /* For waiter list in struct semaphore */
 };
 
 /* Thread identifier type.
@@ -103,8 +102,6 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-    int static_priority;                /* Priority not affected by donation */
-    int64_t wake_up_time;               /* Wake up time from sleep */
     struct list_elem allelem;           /* List element for all threads list. */
     
     /* Shared between thread.c and synch.c. */
@@ -115,13 +112,16 @@ struct thread
     struct list donors;                 /* doners list wiht priority higher than t. */
     struct list_elem donor_elem;        /* List element for donors list, one list only*/
     struct list_elem waiter_elem;       /* List element for waiter list,one list only*/ 
+    int static_priority;                /* Priority not affected by donation */
     
     //P1-3
     int32_t recent_cpu;                 /* Per-thread recent_cpu data */
     int nice;                           /* What a good guy */
     bool recent_cpu_dirty;              /* Whether recent_cpu has changed */
     /* Enforce preemption. */
-
+    
+    //P1-1
+    int64_t wake_up_time;               /* Wake up time from sleep */
     struct list_elem sleep_elem;        /* Sleep List element */
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
