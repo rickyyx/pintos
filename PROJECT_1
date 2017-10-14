@@ -42,17 +42,21 @@ thread_sleep():
 
 Nothing extra is added in the timer interrupt handler. 
 
-In schedule(), The sleep_list is sorted, with the earliest ot be wake up at the begining. So at each timer interrupt, it is not needed to iterate through the whole list. 
+In schedule(), The sleep_list is sorted, with the earliest ot be wake up at 
+the begining. So at each timer interrupt, it is not needed to iterate through 
+the whole list. 
 
 
 ---- SYNCHRONIZATION ----
 
 >> A4: How are race conditions avoided when multiple threads call
 >> timer_sleep() simultaneously?
-Interrupt is disabled before any critical instructions. So only one thread is allowed to access the wait_thread and modify it at one time.
+Interrupt is disabled before any critical instructions. So only one thread is 
+allowed to access the wait_thread and modify it at one time.
 
 [Question]
-However, in a SMP multithreaded machine, synchronization on the sleep_list is needed if it is a global object? 
+However, in a SMP multithreaded machine, synchronization on the sleep_list is
+needed if it is a global object? 
 
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
@@ -66,14 +70,20 @@ Interrupt will be disabled in critical steps.
 >> another design you considered?
 
 Alternative 1:
-Leave the thread in the ready_list, and check each of them when considering which one to run by the scheduler. 
+Leave the thread in the ready_list, and check each of them when considering 
+which one to run by the scheduler. 
 --
-Current implementation is better in this design since it does not mess up with the ready_list. 
+Current implementation is better in this design since it does not mess up with
+the ready_list. 
 
 Alternative 2: 
-Use an unsorted sleep_list. This will result O(n) in every single invocation of the timer interrupt. 
+Use an unsorted sleep_list. This will result O(n) in every single invocation 
+of the timer interrupt. 
 --
-Current implementation has greater cost on inserting element into the list. But allows O(1) for removal and avoids unnecessary iterations during timer interrupt. So it will be better with more frequent timer interrupts and less invocations of timer_sleep()
+Current implementation has greater cost on inserting element into the list. 
+But allows O(1) for removal and avoids unnecessary iterations during timer 
+interrupt. So it will be better with more frequent timer interrupts and less 
+invocations of timer_sleep()
 
 Alternative 3: 
 Waking up threads in every timer interrupt. 
@@ -249,7 +259,9 @@ A lock on the read_list could be used to synchronize the modifications.
 >> another design you considered?
 
 The tracking of ready threads in the run queue could be further improved
-with a bit vector that tracks the emptiness of the queue. Also the number of ready threads could be tracked by a count, which needs to be syncronized if there are multiple threads running at the same time. (eg, multi-core processors) 
+with a bit vector that tracks the emptiness of the queue. Also the number of
+ready threads could be tracked by a count, which needs to be syncronized if 
+there are multiple threads running at the same time. (eg, multi-core processors)
 
 ADVANCED SCHEDULER
 ==================
