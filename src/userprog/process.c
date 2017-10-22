@@ -28,20 +28,46 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy;
+  char *ptr, *parsed;
+  char delim[] = " ";
+  struct cmd_frame cf, * cf_ptr;
+
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
-    return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
+  //fn_copy = palloc_get_page (0);
+  //if (fn_copy == NULL)
+  //  return TID_ERROR;
+  //
+  ptr = palloc_get_page(0);
+  if(ptr == NULL)
+      return TID_ERROR;
+
+  memcpy(ptr, &cf, sizeof(struct cmd_frame));
+  cf_ptr = (struct cmd_frame *)ptr;
+  ptr += sizeof(struct cmd_frame);
+  
+  strlcpy(ptr, file_name, PGSIZE-sizeof(struct cmd_frame));
+  
+  cf_ptr->prog_name = strtok_r(ptr, delim, &parsed);
+  ASSERT(cf_ptr->prog_name != NULL);
+
+  cf_ptr->prog_args = strtok_r(NULL, delim, &parsed);
+  
+  /* Copy parsed tokens into the stack */
+
+ // for(token = strtok_r(file_name,delim, &ptr); token != NULL;
+ //         token = strtok_r(NULL, delim, &ptr))
+ // {
+ //   strlcpy(fn_copy, token, strlen(token));
+ // }
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, cf_ptr);
+
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page (cf_ptr); 
   return tid;
 }
 
@@ -229,6 +255,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
+
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -304,6 +331,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
+
+  /* Prepare the user stack arguments */
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
