@@ -7,6 +7,8 @@ struct cmd_frame
 {
     char * prog_name;                   /* Program name */
     char * prog_args;                   /* Program arguments after name*/
+    int argc;                           /* Argument counts */
+    char * boundary;                    /* Boundary addrss of the arguments */
 };
 
 tid_t process_execute (const char *file_name);

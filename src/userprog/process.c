@@ -19,7 +19,7 @@
 #include "threads/vaddr.h"
 
 static thread_func start_process NO_RETURN;
-static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static bool load (const struct cmd_frame cf, void (**eip) (void), void **esp);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -28,9 +28,10 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *ptr, *parsed;
+  char *ptr, *parsed, *token;
   char delim[] = " ";
   struct cmd_frame cf, * cf_ptr;
+  int argc = 0;
 
   tid_t tid;
 
@@ -53,7 +54,15 @@ process_execute (const char *file_name)
   cf_ptr->prog_name = strtok_r(ptr, delim, &parsed);
   ASSERT(cf_ptr->prog_name != NULL);
 
-  cf_ptr->prog_args = strtok_r(NULL, delim, &parsed);
+  token = strtok_r(NULL, delim, &parsed);
+  cf_ptr->prog_args = token;
+
+  while(token != NULL){
+    argc++;
+    cf_ptr->boundary = token;
+    token = strtok_r(NULL, delim, &ptr);
+  }
+  cf_ptr->argc = argc;
   
   /* Copy parsed tokens into the stack */
 
@@ -74,9 +83,9 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *cmd_frame_)
 {
-  char *file_name = file_name_;
+  struct cmd_frame * cf = cmd_frame_;
   struct intr_frame if_;
   bool success;
 
@@ -85,10 +94,11 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+
+  success = load (cf, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
-  palloc_free_page (file_name);
+  palloc_free_page (cf);
   if (!success) 
     thread_exit ();
 
@@ -221,7 +231,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, struct cmd_frame *cf);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -232,7 +242,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp) 
+load (const struct cmd_frame *cf, void (**eip) (void), void **esp) 
 {
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
@@ -240,6 +250,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   int i;
+  char * file_name;
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -248,6 +259,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+  file_name = cf->prog_name;
   file = filesys_open (file_name);
   if (file == NULL) 
     {
@@ -329,7 +341,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp, cf))
     goto done;
 
   /* Prepare the user stack arguments */
@@ -344,7 +356,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   file_close (file);
   return success;
 }
-
 /* load() helpers. */
 
 static bool install_page (void *upage, void *kpage, bool writable);
@@ -456,17 +467,22 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, struct cmd_frame *cf) 
 {
   uint8_t *kpage;
   bool success = false;
+  int argc = cf->argc;
+
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
+      if (success){
+        //TODO: set up stack properly        
+
         *esp = PHYS_BASE;
+      }
       else
         palloc_free_page (kpage);
     }
