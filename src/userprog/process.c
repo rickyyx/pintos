@@ -19,7 +19,7 @@
 #include "threads/vaddr.h"
 
 static thread_func start_process NO_RETURN;
-static bool load (const struct cmd_frame cf, void (**eip) (void), void **esp);
+static bool load (const struct cmd_frame * cf, void (**eip) (void), void **esp);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -30,8 +30,7 @@ process_execute (const char *file_name)
 {
   char *ptr, *parsed, *token;
   char delim[] = " ";
-  struct cmd_frame cf, * cf_ptr;
-  int argc = 0;
+  struct cmd_frame * cf_ptr;
 
   tid_t tid;
 
@@ -39,38 +38,30 @@ process_execute (const char *file_name)
      Otherwise there's a race between the caller and load(). */
   //fn_copy = palloc_get_page (0);
   //if (fn_copy == NULL)
-  //  return TID_ERROR;
-  //
+  //  return TID_ERROR; //
   ptr = palloc_get_page(0);
   if(ptr == NULL)
       return TID_ERROR;
-
-  memcpy(ptr, &cf, sizeof(struct cmd_frame));
+  
+  /* Put cmd_frame on top of the aux page */
   cf_ptr = (struct cmd_frame *)ptr;
   ptr += sizeof(struct cmd_frame);
-  
+
+  cf_ptr->argc = 0;
+  cf_ptr->argv_len = 0;
+  cf_ptr->prog_name = ptr;
+
+
+  /* Copy comand line on to the page */
   strlcpy(ptr, file_name, PGSIZE-sizeof(struct cmd_frame));
   
-  cf_ptr->prog_name = strtok_r(ptr, delim, &parsed);
-  ASSERT(cf_ptr->prog_name != NULL);
-
-  token = strtok_r(NULL, delim, &parsed);
-  cf_ptr->prog_args = token;
-
-  while(token != NULL){
-    argc++;
-    cf_ptr->boundary = token;
-    token = strtok_r(NULL, delim, &ptr);
+  /* Parsed tokens */
+  for(token = strtok_r(ptr,delim, &parsed); token != NULL;
+          token = strtok_r(NULL, delim, &parsed))
+  {
+      cf_ptr->argc++;
+      cf_ptr->argv_len += (strlen(token) + 1);
   }
-  cf_ptr->argc = argc;
-  
-  /* Copy parsed tokens into the stack */
-
- // for(token = strtok_r(file_name,delim, &ptr); token != NULL;
- //         token = strtok_r(NULL, delim, &ptr))
- // {
- //   strlcpy(fn_copy, token, strlen(token));
- // }
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, cf_ptr);
@@ -231,7 +222,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp, struct cmd_frame *cf);
+static bool setup_stack (void **esp, const struct cmd_frame *cf);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -467,11 +458,16 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp, struct cmd_frame *cf) 
+setup_stack (void **esp, const struct cmd_frame *cf) 
 {
   uint8_t *kpage;
   bool success = false;
-  int argc = cf->argc;
+  int argc, argv_len;
+  char * stack_ptr, * argv_start;
+  
+  stack_ptr = PHYS_BASE;
+  argc = cf->argc;
+  argv_len = cf->argv_len;
 
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
@@ -481,7 +477,40 @@ setup_stack (void **esp, struct cmd_frame *cf)
       if (success){
         //TODO: set up stack properly        
 
-        *esp = PHYS_BASE;
+        /* Pushed argvs */
+        stack_ptr -= argv_len;
+        memcpy(stack_ptr, cf->prog_name, argv_len);
+        
+        /* Word Align stack_ptr */
+        argv_start = stack_ptr;
+        stack_ptr  = (char*) ((uintptr_t)(stack_ptr) & ~0x3);
+        
+        /* Find the esp  */
+        stack_ptr = (stack_ptr - 
+                4 * (cf->argc + 4)); /* sentinel + *argv+ argc + ret */ 
+        *esp = stack_ptr;
+
+        /* Skip fake return address */
+        stack_ptr += 4;
+        
+        /* Set argc */
+        *(int*)stack_ptr = cf->argc;
+        stack_ptr += 4;
+
+        /* Set *argv */
+        *(char**)stack_ptr = stack_ptr+4;
+        stack_ptr += 4;
+
+        /* Set The rest argvs address */
+        while(argc--) {
+            *(char**)stack_ptr = argv_start;
+            argv_start += (strlen(argv_start)+1);
+            stack_ptr++;
+        }
+
+        /* Set zero */
+        *stack_ptr = 0;
+
       }
       else
         palloc_free_page (kpage);
