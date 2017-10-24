@@ -505,12 +505,13 @@ setup_stack (void **esp, const struct cmd_frame *cf)
         while(argc--) {
             *(char**)stack_ptr = argv_start;
             argv_start += (strlen(argv_start)+1);
-            stack_ptr++;
+            stack_ptr+=4;
         }
 
         /* Set zero */
         *stack_ptr = 0;
-
+       
+        //hex_dump((uintptr_t)(*esp), *esp, 52, true);
       }
       else
         palloc_free_page (kpage);
