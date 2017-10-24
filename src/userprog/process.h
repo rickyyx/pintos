@@ -6,9 +6,9 @@
 struct cmd_frame 
 {
     char * prog_name;                   /* Program name */
-    char * prog_args;                   /* Program arguments after name*/
+    int argv_len ;                      /* Length of the command line*/
     int argc;                           /* Argument counts */
-    char * boundary;                    /* Boundary addrss of the arguments */
+    char * last_argv;                    /* Boundary addrss of the arguments */
 };
 
 tid_t process_execute (const char *file_name);
