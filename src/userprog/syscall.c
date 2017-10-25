@@ -29,10 +29,10 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 
-  //_exit
+  //sys_exit
   syscall_table[SYS_EXIT] = syscall_exit;
   syscall_argc_table[SYS_EXIT] = 1;
-
+  printf("System number of exit : %d\n", SYS_EXIT);
 }
 
 static void
@@ -86,15 +86,18 @@ valid_user_vaddr(void * addr)
 }
 
 static void
-_exit(int status UNUSED)
+_exit(int status)
 {
+    struct thread * cur = thread_current();
 
+    printf ("%s: exit(%d)\n",cur->name, status);
+    thread_exit();
 }
 
 static void
-sys_call(int* argv, struct intr_frame * cf)
+syscall_exit(int* argv, struct intr_frame * cf UNUSED)
 {
-
+    _exit(*argv);
 }
 
 
