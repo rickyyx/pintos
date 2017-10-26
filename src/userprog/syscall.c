@@ -10,10 +10,11 @@
 /* Syscalls */
 static void syscall_handler (struct intr_frame *);
 static void syscall_exit(int*, struct intr_frame*);
+static void syscall_write(int*, struct intr_frame*);
 
 /* Utility methods */
 static bool valid_syscall_num(const int);
-static int get_syscall_argv(int, int*, int*);
+static bool get_syscall_argv(int, int*, int*);
 static bool valid_user_vaddr(void*);
 
 static void _exit(const int);
@@ -32,7 +33,10 @@ syscall_init (void)
   //sys_exit
   syscall_table[SYS_EXIT] = syscall_exit;
   syscall_argc_table[SYS_EXIT] = 1;
-  printf("System number of exit : %d\n", SYS_EXIT);
+
+  //write
+  syscall_table[SYS_WRITE] = syscall_write;
+  syscall_argc_table[SYS_WRITE] = 3;
 }
 
 static void
@@ -64,17 +68,17 @@ valid_syscall_num(const int num)
 }
 
 
-static int
+static bool
 get_syscall_argv(const int syscall_num, int * argv, int* esp) 
 {
     int syscall_argc = syscall_argc_table[syscall_num];
 
     while(syscall_argc--){
         if(!valid_user_vaddr(esp))
-            return -1;
+            return false;
         *argv++ = *esp++;
     }
-    return 0;
+    return true;
 }
 
 
@@ -89,10 +93,24 @@ static void
 _exit(int status)
 {
     struct thread * cur = thread_current();
-
     printf ("%s: exit(%d)\n",cur->name, status);
     thread_exit();
 }
+
+static void
+syscall_write(int* argv, struct intr_frame * cf)
+{
+    int fd = *(int*)argv++;
+    void * buffer = (void*) argv++;
+    unsigned size = *(unsigned*)argv++;
+
+    if(fd == 1) {
+        putbuf(buffer, size);
+    }
+
+    cf->eax = (uint32_t) size;
+}
+
 
 static void
 syscall_exit(int* argv, struct intr_frame * cf UNUSED)
