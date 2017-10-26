@@ -39,6 +39,10 @@ syscall_init (void)
   //write
   syscall_table[SYS_WRITE] = syscall_write;
   syscall_argc_table[SYS_WRITE] = 3;
+
+  //halt
+  syscall_table[SYS_HALT] = syscall_halt;
+  syscall_argc_table[SYS_HALT] = 0;
 }
 
 static void
