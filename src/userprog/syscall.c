@@ -5,12 +5,14 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "devices/shutdown.h"
 
 
 /* Syscalls */
 static void syscall_handler (struct intr_frame *);
 static void syscall_exit(int*, struct intr_frame*);
 static void syscall_write(int*, struct intr_frame*);
+static void syscall_halt(int*, struct intr_frame*);
 
 /* Utility methods */
 static bool valid_syscall_num(const int);
@@ -108,6 +110,7 @@ syscall_write(int* argv, struct intr_frame * cf)
         putbuf(buffer, size);
     }
 
+    //TODO: fd != 1?
     cf->eax = (uint32_t) size;
 }
 
@@ -118,4 +121,8 @@ syscall_exit(int* argv, struct intr_frame * cf UNUSED)
     _exit(*argv);
 }
 
-
+static void
+syscall_halt(int* argv UNUSED, struct intr_frame * cf UNUSED)
+{
+    shutdown_power_off();
+}
