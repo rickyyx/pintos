@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <error.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
@@ -17,10 +18,12 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
+#include "threads/synch.h"
 
 static thread_func start_process NO_RETURN;
-static bool load (const struct cmd_frame * cf, void (**eip) (void), void **esp);
-
+static bool load(const struct cmd_frame *, void (**eip) (void), void **);
+static struct cmd_frame * parse_arguments(char*, const char*);
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -28,22 +31,60 @@ static bool load (const struct cmd_frame * cf, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *ptr, *parsed, *token;
-  char delim[] = " ";
+  char *ptr;
   struct cmd_frame * cf_ptr;
-
   tid_t tid;
+  struct semaphore * child_done;
+  struct thread * cur;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  //fn_copy = palloc_get_page (0);
-  //if (fn_copy == NULL)
-  //  return TID_ERROR; //
   ptr = palloc_get_page(0);
   if(ptr == NULL)
       return TID_ERROR;
   
   /* Put cmd_frame on top of the aux page */
+  cf_ptr = parse_arguments(ptr, file_name);
+   
+  /* Put child_done semaphore in to it for syncing */
+  child_done = malloc(sizeof(struct semaphore));
+  sema_init(child_done, 0);
+  cf_ptr->loaded = child_done;
+
+  /* Create a new thread to execute FILE_NAME. */
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, cf_ptr);
+
+  if (tid == TID_ERROR){
+      palloc_free_page(cf_ptr);  
+      goto done;
+  }
+
+  /* Wait for child to be loaded */
+  cur = thread_current();
+
+  sema_down(child_done);
+
+  if(cur->err)
+      tid = TID_ERROR;
+
+done:
+  free(child_done);
+  return tid;
+}
+
+/* Utility function that takes in a pointer to store data, and 
+   file_name/cmd_line to be parsed, returns a pointer to the cmd
+   frame, where the layout follows: 
+   struct cmd_frame 
+   ... data 
+*/
+struct cmd_frame *
+parse_arguments(char * ptr, const char * file_name) 
+{
+  char *parsed, *token;
+  char delim[] = " ";
+  struct cmd_frame * cf_ptr;
+
   cf_ptr = (struct cmd_frame *)ptr;
   ptr += sizeof(struct cmd_frame);
 
@@ -63,12 +104,7 @@ process_execute (const char *file_name)
       cf_ptr->argv_len += (strlen(token) + 1);
   }
 
-  /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, cf_ptr);
-
-  if (tid == TID_ERROR)
-    palloc_free_page (cf_ptr); 
-  return tid;
+  return cf_ptr;
 }
 
 /* A thread function that loads a user process and starts it
@@ -80,6 +116,9 @@ start_process (void *cmd_frame_)
   struct intr_frame if_;
   bool success;
 
+  struct thread * par;
+   
+
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -87,11 +126,21 @@ start_process (void *cmd_frame_)
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   success = load (cf, &if_.eip, &if_.esp);
-
+  
   /* If load failed, quit. */
-  palloc_free_page (cf);
-  if (!success) 
+  palloc_free_page (cf); 
+    
+  par = thread_current() -> parent;
+  ASSERT(par != NULL);
+  if (!success) {
+    par->err = ERROR_LOAD;
+  }
+
+  sema_up(cf->loaded);
+
+  if (!success) {
     thread_exit ();
+  }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

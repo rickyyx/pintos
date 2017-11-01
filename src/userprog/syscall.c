@@ -1,4 +1,5 @@
 #include "userprog/syscall.h"
+#include "userprog/process.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
@@ -6,13 +7,14 @@
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 #include "devices/shutdown.h"
-
+#include <user/syscall.h>
 
 /* Syscalls */
 static void syscall_handler (struct intr_frame *);
 static void syscall_exit(int*, struct intr_frame*);
 static void syscall_write(int*, struct intr_frame*);
 static void syscall_halt(int*, struct intr_frame*);
+static void syscall_exec(int*, struct intr_frame*);
 
 /* Utility methods */
 static bool valid_syscall_num(const int);
@@ -43,6 +45,10 @@ syscall_init (void)
   //halt
   syscall_table[SYS_HALT] = syscall_halt;
   syscall_argc_table[SYS_HALT] = 0;
+
+  //exec
+  syscall_table[SYS_EXEC] = syscall_exec;
+  syscall_argc_table[SYS_EXEC] = 1;
 }
 
 static void
@@ -130,3 +136,16 @@ syscall_halt(int* argv UNUSED, struct intr_frame * cf UNUSED)
 {
     shutdown_power_off();
 }
+
+static void
+syscall_exec(int* argv, struct intr_frame * cf)
+{
+    //char* ptr;
+    const char *cmd_line = (char*) argv;
+    pid_t pid;
+    pid = process_execute(cmd_line);
+
+    cf->eax = (uint32_t) pid;
+}
+
+
