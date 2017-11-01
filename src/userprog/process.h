@@ -8,7 +8,8 @@ struct cmd_frame
     char * prog_name;                   /* Program name */
     int argv_len ;                      /* Length of the command line*/
     int argc;                           /* Argument counts */
-    char * last_argv;                    /* Boundary addrss of the arguments */
+    void* aux;                          /* Aux data pointer */
+    struct semaphore * loaded;          /* Semaphore indicated loaded */
 };
 
 tid_t process_execute (const char *file_name);

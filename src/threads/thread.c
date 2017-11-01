@@ -360,6 +360,7 @@ thread_create (const char *name, int priority,
     init_thread (t, name, priority, cur->nice,cur->recent_cpu);
     tid = t->tid = allocate_tid ();
 
+
     /* Stack frame for kernel_thread(). */
     kf = alloc_frame (t, sizeof *kf);
     kf->eip = NULL;
@@ -831,6 +832,7 @@ init_thread (struct thread *t, const char *name, int priority, int nice,
     t->stack = (uint8_t *) t + PGSIZE;
     t->magic = THREAD_MAGIC;
     t->waiting_lock = NULL;
+    t->parent = thread_current();
 
     t->nice = nice;
     t->recent_cpu = recent_cpu;
@@ -1009,7 +1011,6 @@ allocate_tid (void)
 
     return tid;
 }
-
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);

@@ -126,8 +126,12 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    struct thread * parent;              /* Pointer to the parent process */
 #endif
     
+    //P2
+    int err;                            /* For Error code */
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
@@ -175,5 +179,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+//P2
 
 #endif /* threads/thread.h */
