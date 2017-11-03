@@ -164,10 +164,34 @@ start_process (void *cmd_frame_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  while(1);
-  return -1;
+  list_elem * e;
+  struct thread * cur, * child;
+
+  cur = thread_current();
+
+  list_for_each_entry(e, cur->children)
+  {
+     child = list_entry(e, struct thread, parent_elem); 
+     if(child->tid == child_tid){
+         goto valid_child;
+     }
+  }
+    
+  /* No child found: process_wait() called || not a child */
+  return TID_ERROR;
+
+valid_child:
+    
+  /* Killed by the kernel */
+  if(child->flags & PF_KILLED)
+      return TID_ERROR;
+  
+  sema_down(child->exiting);
+
+  /* Child exited */
+
 }
 
 /* Free the current process's resources. */

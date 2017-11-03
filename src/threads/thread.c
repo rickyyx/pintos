@@ -472,6 +472,11 @@ init_thread (struct thread *t, const char *name, int priority)
     t->parent = parent;
     list_push_back(&parent->children, &t->parent_elem);
 
+    /* Init semaphore */
+    struct semaphore * sema_exiting = malloc(sizeof(struct semaphore));
+    sema_init(sema_exiting, 0);
+    t->exiting = sema_exiting;
+
     list_init(&t->children);
 
     old_level = intr_disable ();
