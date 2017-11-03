@@ -24,6 +24,8 @@
 static thread_func start_process NO_RETURN;
 static bool load(const struct cmd_frame *, void (**eip) (void), void **);
 static struct cmd_frame * parse_arguments(char*, const char*);
+
+static void zombie_destroy(struct thread *);
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -175,6 +177,13 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  /* Mark the process as exiting */
+  cur->flags |= PF_EXITING;
+
+  /* Clean up the zombie children thread_struct */
+  zombie_destroy (cur);
+
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -191,6 +200,14 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+}
+
+/* Free the thread struct resources of all the zombie children */
+
+void
+zombie_destroy(struct thread * t)
+{
+
 }
 
 /* Sets up the CPU for running user code in the current
