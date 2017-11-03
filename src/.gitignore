@@ -3,5 +3,7 @@ cscope.out
 TAGS
 tags
 
+doc/
+
 examples/**/*.o
 examples/**/*.a

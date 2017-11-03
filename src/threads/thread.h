@@ -126,13 +126,16 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    //P2
     struct thread * parent;              /* Pointer to the parent process */
     struct list children;               /* List of children */
     struct list_elem parent_elem;       /* Its parent's childrent list elem */
-#endif
-    //P2
     int err;                            /* For Error code */
+    int exit_status;                    /* Exit status */
     unsigned int flags;                 /* Flags, details defined below */ 
+    struct semaphore * exiting;         /* Signal to parent that the thread is done */
+
+#endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
