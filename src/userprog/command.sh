@@ -7,7 +7,7 @@ cd build/ &&
 
 
 #pintos --gdb  --filesys-size=2 -p tests/userprog/exit -a exit -- -q  -f run exit < /dev/null 2> tests/userprog/exit.errors |tee tests/userprog/exit.output
-pintos -k -T 60 --filesys-size=2 -p tests/userprog/exit -a exit -- -q -f run exit < /dev/null 2> tests/userprog/exit.errors |tee tests/userprog/exit.output
+pintos --gdb --filesys-size=2 -p tests/userprog/exit -a exit -- -q -f run exit < /dev/null 2> tests/userprog/exit.errors |tee tests/userprog/exit.output
 #pintos --gdb  --filesys-size=2 -p tests/userprog/exit -a exit -- -f -q run exit
 # pintos --gdb  --filesys-size=2 -p ../../examples/echo -a echo -- -f run 'echo hello here'
 

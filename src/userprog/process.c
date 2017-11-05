@@ -167,7 +167,7 @@ start_process (void *cmd_frame_)
 int
 process_wait (tid_t child_tid) 
 {
-  list_elem * e;
+  struct list_elem * e;
   struct thread * cur, * child;
   int ret;
 
@@ -177,14 +177,14 @@ process_wait (tid_t child_tid)
   {
      child = list_entry(e, struct thread, parent_elem); 
      if(child->tid == child_tid){
-         goto valid_child;
+         goto valid;
      }
   }
     
   /* No child found: process_wait() called || not a child */
   return TID_ERROR;
 
-valid_child:
+valid:
   /* Child exited */
   sema_down(child->exiting);
 
@@ -207,7 +207,7 @@ done:
 void
 done_child(struct thread * child) 
 {
-    list_remove(child->parent_elem);
+    list_remove(&child->parent_elem);
     free(child->exiting);
 
     palloc_free_page(child);

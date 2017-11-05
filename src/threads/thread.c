@@ -13,6 +13,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "devices/timer.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -342,7 +343,7 @@ thread_print_stats (void)
 thread_create (const char *name, int priority,
         thread_func *function, void *aux) 
 {
-    struct thread *t, *cur;
+    struct thread *t, *cur, *parent;
     struct kernel_thread_frame *kf;
     struct switch_entry_frame *ef;
     struct switch_threads_frame *sf;
@@ -360,6 +361,15 @@ thread_create (const char *name, int priority,
     init_thread (t, name, priority, cur->nice,cur->recent_cpu);
     tid = t->tid = allocate_tid ();
 
+    /* Set up its relationship to parent */
+    parent = thread_current();
+    t->parent = parent;
+    list_push_back(&parent->children, &t->parent_elem);
+
+    /* Init semaphore */
+    struct semaphore * sema_exiting = malloc(sizeof(struct semaphore));
+    sema_init(sema_exiting, 0);
+    t->exiting = sema_exiting;
 
     /* Stack frame for kernel_thread(). */
     kf = alloc_frame (t, sizeof *kf);
@@ -825,7 +835,6 @@ init_thread (struct thread *t, const char *name, int priority, int nice,
         int32_t recent_cpu)
 {
     enum intr_level old_level;
-    struct thread * parent;
 
 
     ASSERT (t != NULL);
@@ -848,15 +857,6 @@ init_thread (struct thread *t, const char *name, int priority, int nice,
 
     list_init(&t->donors);
     //P2
-    /* Set up its relationship to parent */
-    parent = thread_current();
-    t->parent = parent;
-    list_push_back(&parent->children, &t->parent_elem);
-
-    /* Init semaphore */
-    struct semaphore * sema_exiting = malloc(sizeof(struct semaphore));
-    sema_init(sema_exiting, 0);
-    t->exiting = sema_exiting;
 
     list_init(&t->children);
 
