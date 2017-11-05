@@ -286,14 +286,19 @@ thread_exit (void)
   process_exit ();
 #endif
 
-  /* Remove thread from all threads list, set our status to dying,
-     and schedule another process.  That process will destroy us
-     when it calls thread_schedule_tail(). */
-  intr_disable ();
-  list_remove (&thread_current()->allelem);
-  thread_current ()->status = THREAD_DYING;
-  schedule ();
-  NOT_REACHED ();
+    /* Remove thread from all threads list, set our status to dying,
+       and schedule another process.  That process will destroy us
+       when it calls thread_schedule_tail(). */
+    intr_disable ();
+    list_remove (&thread_current()->allelem);
+    running = thread_current();
+    running->status = THREAD_DYING;
+
+    /* Signal parent */
+    sema_up(running->exiting);
+
+    schedule ();
+    NOT_REACHED ();
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and

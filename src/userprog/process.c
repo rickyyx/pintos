@@ -201,10 +201,13 @@ done:
   return ret;
 }
 
+
+/* Free the resources of the child thread. child pointer is 
+   garuanteed to be NULL after the method returns */
 void
 done_child(struct thread * child) 
 {
-    list_remove(child->parent);
+    list_remove(child->parent_elem);
     free(child->exiting);
 
     palloc_free_page(child);
@@ -222,7 +225,6 @@ process_exit (void)
 
   /* Clean up the zombie children thread_struct */
   zombie_destroy (cur);
-
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -243,11 +245,23 @@ process_exit (void)
 }
 
 /* Free the thread struct resources of all the zombie children */
-
 void
 zombie_destroy(struct thread * t)
 {
+    struct list_elem * cur, * next;
+    struct thread * child;
 
+    for(cur = list_begin(&t->children), next = cur->next; 
+            cur != list_end(&t->children);
+            next = next->next) /* Not safe to use list_next() here */
+    {
+        child = list_entry(cur,struct thread, parent_elem); 
+
+        if(child->status == THREAD_DYING) {
+            done_child(child);
+        }
+        cur = next;
+    }
 }
 
 /* Sets up the CPU for running user code in the current
