@@ -122,6 +122,10 @@ struct list
 #define LIST_INITIALIZER(NAME) { { NULL, &(NAME).tail }, \
                                  { &(NAME).head, NULL } }
 
+#define list_for_each_entry(e, list)                    \
+    for(e=list_begin(&list); e != list_end(&list);      \
+            e = list_next(e))
+
 void list_init (struct list *);
 
 /* List traversal. */

@@ -11,6 +11,8 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -166,7 +168,7 @@ tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
 {
-  struct thread *t;
+  struct thread *t, *parent;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
@@ -183,11 +185,21 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
-  /* Stack frame for kernel_thread(). */
-  kf = alloc_frame (t, sizeof *kf);
-  kf->eip = NULL;
-  kf->function = function;
-  kf->aux = aux;
+    /* Set up its relationship to parent */
+    parent = thread_current();
+    t->parent = parent;
+    list_push_back(&parent->children, &t->parent_elem);
+
+    /* Init semaphore */
+    struct semaphore * sema_exiting = malloc(sizeof(struct semaphore));
+    sema_init(sema_exiting, 0);
+    t->exiting = sema_exiting;
+
+    /* Stack frame for kernel_thread(). */
+    kf = alloc_frame (t, sizeof *kf);
+    kf->eip = NULL;
+    kf->function = function;
+    kf->aux = aux;
 
   /* Stack frame for switch_entry(). */
   ef = alloc_frame (t, sizeof *ef);
@@ -457,7 +469,6 @@ static void
 init_thread (struct thread *t, const char *name, int priority)
 {
     enum intr_level old_level;
-    struct thread * parent;
 
 
   ASSERT (t != NULL);
@@ -472,15 +483,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
 
     //P2
-    /* Set up its relationship to parent */
-    parent = thread_current();
-    t->parent = parent;
-    list_push_back(&parent->children, &t->parent_elem);
-
-    /* Init semaphore */
-    struct semaphore * sema_exiting = malloc(sizeof(struct semaphore));
-    sema_init(sema_exiting, 0);
-    t->exiting = sema_exiting;
 
     list_init(&t->children);
 

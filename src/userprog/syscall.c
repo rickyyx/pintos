@@ -156,8 +156,7 @@ syscall_exec(int* argv, struct intr_frame * cf)
 static void
 syscall_wait(int* argv, struct intr_frame * cf)
 {
-    pid_t pid = (pid_t *) *argv;
-
-
+    pid_t pid = *(pid_t *)argv;
+    cf->eax = process_wait((tid_t)pid);
 }
 
