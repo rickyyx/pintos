@@ -554,8 +554,27 @@ thread_schedule_tail (struct thread *prev)
             && (prev->parent == NULL || prev->parent->flags & PF_EXITING))
             /* Keep the struct if parent still around */
     {
-      ASSERT (prev != cur);
-      palloc_free_page (prev);
+        ASSERT (prev != cur);
+        free(prev->exiting);
+        palloc_free_page (prev);
+    }
+}
+
+/* Move all threads in the sleep_list with a wake_up_time smaller
+ * than the cur_tick to ready_list */
+    static void
+wake_threads_up(void) 
+{
+    struct list_elem *e;
+    struct thread * t; 
+    int64_t cur_tick = timer_ticks();
+
+    while(should_wakeup(list_begin(&sleep_list), cur_tick))
+    {
+        e = list_pop_front(&sleep_list);
+        t = list_entry(e, struct thread, sleep_elem);
+
+        thread_unblock(t);
     }
 }
 

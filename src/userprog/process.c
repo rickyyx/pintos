@@ -24,6 +24,7 @@
 static thread_func start_process NO_RETURN;
 static bool load(const struct cmd_frame *, void (**eip) (void), void **);
 static struct cmd_frame * parse_arguments(char*, const char*);
+static void done_child(struct thread *);
 
 static void zombie_destroy(struct thread *);
 /* Starts a new thread running a user program loaded from
@@ -168,6 +169,7 @@ process_wait (tid_t child_tid)
 {
   list_elem * e;
   struct thread * cur, * child;
+  int ret;
 
   cur = thread_current();
 
@@ -183,15 +185,29 @@ process_wait (tid_t child_tid)
   return TID_ERROR;
 
 valid_child:
-    
-  /* Killed by the kernel */
-  if(child->flags & PF_KILLED)
-      return TID_ERROR;
-  
+  /* Child exited */
   sema_down(child->exiting);
 
-  /* Child exited */
+  /* Killed by the kernel */
+  if(child->flags & PF_KILLED) {
+      ret = TID_ERROR;
+      goto done;
+  }
 
+  ret = child->exit_status;
+
+done:
+  done_child(child);
+  return ret;
+}
+
+void
+done_child(struct thread * child) 
+{
+    list_remove(child->parent);
+    free(child->exiting);
+
+    palloc_free_page(child);
 }
 
 /* Free the current process's resources. */
