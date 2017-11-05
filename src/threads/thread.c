@@ -955,6 +955,7 @@ thread_schedule_tail (struct thread *prev)
             /* Keep the struct if parent still around */
     {
         ASSERT (prev != cur);
+        free(prev->exiting);
         palloc_free_page (prev);
     }
 }
