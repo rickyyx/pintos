@@ -188,5 +188,6 @@ int thread_get_load_avg (void);
 //P2
 
 #define PF_EXITING      0x00000002      /* Thread exiting */
+#define PF_KILLED       0x00000004      /* Killed by Kernel */
 
 #endif /* threads/thread.h */

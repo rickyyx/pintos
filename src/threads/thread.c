@@ -481,6 +481,10 @@ thread_exit (void)
     list_remove (&thread_current()->allelem);
     running = thread_current();
     running->status = THREAD_DYING;
+
+    /* Signal parent */
+    sema_up(running->exiting);
+
     schedule ();
     NOT_REACHED ();
 }
