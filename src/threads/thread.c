@@ -324,6 +324,23 @@ thread_print_stats (void)
             idle_ticks, kernel_ticks, user_ticks);
 }
 
+/* Get the child process based on c_tid. Returns NULL if not found */
+struct thread *
+thread_child_tid(struct thread * par, tid_t c_tid)
+{
+    struct list_elem *e;
+    struct thread * child;
+
+    list_for_each_entry(e, par->children)
+    {
+        child = list_entry(e, struct thread, parent_elem);
+        if(child->tid == c_tid)
+            return child;
+    }
+
+    return NULL;
+}
+
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
    and adds it to the ready queue.  Returns the thread identifier
@@ -370,6 +387,10 @@ thread_create (const char *name, int priority,
     struct semaphore * sema_exiting = malloc(sizeof(struct semaphore));
     sema_init(sema_exiting, 0);
     t->exiting = sema_exiting;
+
+    struct semaphore * sema_loading = malloc(sizeof(struct semaphore));
+    sema_init(sema_loading, 0);
+    t->loading = sema_loading;
 
     /* Stack frame for kernel_thread(). */
     kf = alloc_frame (t, sizeof *kf);
@@ -490,10 +511,11 @@ thread_exit (void)
     intr_disable ();
     list_remove (&thread_current()->allelem);
     running = thread_current();
-    running->status = THREAD_DYING;
 
     /* Signal parent */
     sema_up(running->exiting);
+
+    running->status = THREAD_DYING;
 
     schedule ();
     NOT_REACHED ();

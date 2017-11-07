@@ -10,7 +10,7 @@ struct cmd_frame
     int argv_len ;                      /* Length of the command line*/
     int argc;                           /* Argument counts */
     void* aux;                          /* Aux data pointer */
-    struct semaphore * loaded;          /* Semaphore indicated loaded */
+    //struct semaphore * loaded;          /* Semaphore indicated loaded */
 };
 
 tid_t process_execute (const char *file_name);
