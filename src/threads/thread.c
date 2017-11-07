@@ -314,6 +314,7 @@ void
 thread_exit (void) 
 {
   ASSERT (!intr_context ());
+  struct thread * running;
 
 #ifdef USERPROG
   process_exit ();
@@ -589,23 +590,23 @@ thread_schedule_tail (struct thread *prev)
     }
 }
 
-/* Move all threads in the sleep_list with a wake_up_time smaller
- * than the cur_tick to ready_list */
-    static void
-wake_threads_up(void) 
-{
-    struct list_elem *e;
-    struct thread * t; 
-    int64_t cur_tick = timer_ticks();
-
-    while(should_wakeup(list_begin(&sleep_list), cur_tick))
-    {
-        e = list_pop_front(&sleep_list);
-        t = list_entry(e, struct thread, sleep_elem);
-
-        thread_unblock(t);
-    }
-}
+///* Move all threads in the sleep_list with a wake_up_time smaller
+// * than the cur_tick to ready_list */
+//    static void
+//wake_threads_up(void) 
+//{
+//    struct list_elem *e;
+//    struct thread * t; 
+//    int64_t cur_tick = timer_ticks();
+//
+//    while(should_wakeup(list_begin(&sleep_list), cur_tick))
+//    {
+//        e = list_pop_front(&sleep_list);
+//        t = list_entry(e, struct thread, sleep_elem);
+//
+//        thread_unblock(t);
+//    }
+//}
 
 /* Schedules a new process.  At entry, interrupts must be off and
    the running process's state must have been changed from
