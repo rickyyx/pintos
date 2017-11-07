@@ -104,6 +104,7 @@ struct thread
     int exit_status;                    /* Exit status */
     unsigned int flags;                 /* Flags, details defined below */ 
     struct semaphore * exiting;         /* Signal to parent that the thread is done */
+    struct semaphore * loading;         /* Signal to parent that the thread is loaded */
 
 #endif
 
@@ -148,6 +149,7 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 //P2
+struct thread * thread_child_tid(struct thread *, tid_t);
 
 #define PF_EXITING      0x00000002      /* Thread exiting */
 #define PF_KILLED       0x00000004      /* Killed by Kernel */

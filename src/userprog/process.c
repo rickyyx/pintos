@@ -37,8 +37,7 @@ process_execute (const char *file_name)
   char *ptr;
   struct cmd_frame * cf_ptr;
   tid_t tid;
-  struct semaphore * child_done;
-  struct thread * cur;
+  struct thread * cur, * child;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -50,9 +49,9 @@ process_execute (const char *file_name)
   cf_ptr = parse_arguments(ptr, file_name);
    
   /* Put child_done semaphore in to it for syncing */
-  child_done = malloc(sizeof(struct semaphore));
-  sema_init(child_done, 0);
-  cf_ptr->loaded = child_done;
+//  child_done = malloc(sizeof(struct semaphore));
+//  sema_init(child_done, 0);
+//  cf_ptr->loaded = child_done;
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, cf_ptr);
@@ -64,14 +63,14 @@ process_execute (const char *file_name)
 
   /* Wait for child to be loaded */
   cur = thread_current();
-
-  sema_down(child_done);
+  child = thread_child_tid(cur, tid);
+  if(child != NULL)
+    sema_down(child->loading);
 
   if(cur->err)
       tid = TID_ERROR;
 
 done:
-  free(child_done);
   return tid;
 }
 
@@ -139,7 +138,7 @@ start_process (void *cmd_frame_)
     par->err = ERROR_LOAD;
   }
 
-  sema_up(cf->loaded);
+  sema_up(thread_current()->loading);
 
   if (!success) {
     thread_exit ();
