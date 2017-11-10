@@ -106,6 +106,7 @@ parse_arguments(char * ptr, const char * file_name)
       cf_ptr->argv_len += (strlen(token) + 1);
   }
 
+
   return cf_ptr;
 }
 
@@ -608,9 +609,10 @@ setup_stack (void **esp, const struct cmd_frame *cf)
         /* Find the esp  */
         stack_ptr = (stack_ptr - 
                 4 * (cf->argc + 4)); /* sentinel + *argv+ argc + ret */ 
-        *esp = stack_ptr;
+        *esp = (void*)stack_ptr;
 
         /* Skip fake return address */
+        *(int *)stack_ptr = 0;
         stack_ptr += 4;
         
         /* Set argc */
@@ -623,15 +625,16 @@ setup_stack (void **esp, const struct cmd_frame *cf)
 
         /* Set The rest argvs address */
         while(argc--) {
-            *(char**)stack_ptr = argv_start;
+            *(void **)stack_ptr = argv_start;
             argv_start += (strlen(argv_start)+1);
             stack_ptr+=4;
         }
 
         /* Set zero */
         *stack_ptr = 0;
-       
-        //hex_dump((uintptr_t)(*esp), *esp, 52, true);
+
+
+        //hex_dump((uintptr_t)(*esp), *esp, 92, true);
       }
       else
         palloc_free_page (kpage);

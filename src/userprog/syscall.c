@@ -119,9 +119,9 @@ static void
 syscall_write(int* argv, struct intr_frame * cf)
 {
     int fd = *(int*)argv++;
-    void * buffer = (void*) argv++;
+    void * buffer = *(void**) argv++;
     unsigned size = *(unsigned*)argv++;
-
+    
     if(fd == 1) {
         putbuf(buffer, size);
     }
