@@ -4,9 +4,9 @@
 
 
 cd build/ &&
-#make tests/userprog/args-multiple.result VERBOSE=1
+make tests/userprog/exec-arg.result VERBOSE=1
 
-pintos --gdb --filesys-size=2 -p tests/userprog/args-multiple -a args-multiple -- -q  -f run 'args-multiple some arguments for you!' < /dev/null 2> tests/userprog/args-multiple.errors |tee tests/userprog/args-multiple.output
+#pintos --gdb --filesys-size=2 -p tests/userprog/args-multiple -a args-multiple -- -q  -f run 'args-multiple some arguments for you!' < /dev/null 2> tests/userprog/args-multiple.errors |tee tests/userprog/args-multiple.output
 
 
 #pintos --gdb  --filesys-size=2 -p tests/userprog/exit -a exit -- -q  -f run exit < /dev/null 2> tests/userprog/exit.errors |tee tests/userprog/exit.output

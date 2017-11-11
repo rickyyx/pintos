@@ -149,7 +149,7 @@ syscall_halt(int* argv UNUSED, struct intr_frame * cf UNUSED)
 static void
 syscall_exec(int* argv, struct intr_frame * cf)
 {
-    const char *cmd_line = (char*) argv;
+    const char *cmd_line = *(char**) argv;
     pid_t pid;
     pid = process_execute(cmd_line);
 
