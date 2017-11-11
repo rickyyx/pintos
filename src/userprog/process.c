@@ -83,7 +83,7 @@ done:
 struct cmd_frame *
 parse_arguments(char * ptr, const char * file_name) 
 {
-  char *parsed, *token;
+  char *parsed, *token, *tmp_cmd;
   char delim[] = " ";
   struct cmd_frame * cf_ptr;
 
@@ -95,15 +95,18 @@ parse_arguments(char * ptr, const char * file_name)
   cf_ptr->prog_name = ptr;
 
 
-  /* Copy comand line on to the page */
-  strlcpy(ptr, file_name, PGSIZE-sizeof(struct cmd_frame));
+  /* Copy comand line to the temp holder */
+  tmp_cmd = palloc_get_page(0);
+  strlcpy(tmp_cmd, file_name, PGSIZE);
   
   /* Parsed tokens */
-  for(token = strtok_r(ptr,delim, &parsed); token != NULL;
+  for(token = strtok_r(tmp_cmd,delim, &parsed); token != NULL;
           token = strtok_r(NULL, delim, &parsed))
   {
       cf_ptr->argc++;
       cf_ptr->argv_len += (strlen(token) + 1);
+      strlcpy(ptr, token, strlen(token)+1);
+      ptr+=(strlen(token)+1);
   }
 
 
@@ -598,7 +601,7 @@ setup_stack (void **esp, const struct cmd_frame *cf)
       if (success){
         //TODO: set up stack properly        
 
-        /* Pushed argvs */
+        /* Pushed argvs, need to take into account spaces */
         stack_ptr -= argv_len;
         memcpy(stack_ptr, cf->prog_name, argv_len);
         
