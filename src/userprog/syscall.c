@@ -1,5 +1,6 @@
 #include "userprog/syscall.h"
 #include "userprog/process.h"
+#include "userprog/pagedir.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
@@ -62,7 +63,7 @@ syscall_handler (struct intr_frame *f)
   int syscall_num, * argv;
   int * esp = f->esp;
 
-  if(!is_user_vaddr(esp) && valid_syscall_num(*esp)){
+  if(!valid_user_vaddr(esp) || !valid_syscall_num(*esp)){
       _exit(-1);
   }
 
@@ -103,7 +104,9 @@ static bool
 valid_user_vaddr(void * addr)
 {
     //TODO: Check if the page is mapped 
-    return addr != NULL && is_user_vaddr(addr);
+    
+    return (addr != NULL && is_user_vaddr(addr) 
+            && lookup_page(thread_current()->pagedir, addr, false) != NULL);
 }
 
 static void
