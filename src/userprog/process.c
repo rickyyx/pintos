@@ -34,7 +34,7 @@ static void zombie_destroy(struct thread *);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *ptr;
+  char *ptr, *save_ptr, *file_name_copy;
   struct cmd_frame * cf_ptr;
   tid_t tid;
   struct thread * cur, * child;
@@ -47,14 +47,14 @@ process_execute (const char *file_name)
   
   /* Put cmd_frame on top of the aux page */
   cf_ptr = parse_arguments(ptr, file_name);
-   
-  /* Put child_done semaphore in to it for syncing */
-//  child_done = malloc(sizeof(struct semaphore));
-//  sema_init(child_done, 0);
-//  cf_ptr->loaded = child_done;
+    
+  /* Break the exe name from the args */
+  file_name_copy = palloc_get_page(0);
+  strlcpy(file_name_copy, file_name, PGSIZE);
+  file_name_copy = strtok_r(file_name_copy, " ", &save_ptr); 
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, cf_ptr);
+  tid = thread_create (file_name_copy, PRI_DEFAULT, start_process, cf_ptr);
 
   if (tid == TID_ERROR){
       palloc_free_page(cf_ptr);  
