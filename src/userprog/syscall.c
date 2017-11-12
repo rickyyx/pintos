@@ -21,7 +21,7 @@ static void syscall_wait(int*, struct intr_frame*);
 /* Utility methods */
 static bool valid_syscall_num(const int);
 static bool get_syscall_argv(int, int*, int*);
-static bool valid_user_vaddr(void*);
+static bool valid_user_vaddr(const void*);
 
 static void _exit(const int);
 
@@ -101,7 +101,7 @@ get_syscall_argv(const int syscall_num, int * argv, int* esp)
 
 
 static bool 
-valid_user_vaddr(void * addr)
+valid_user_vaddr(const void * addr)
 {
     //TODO: Check if the page is mapped 
     
@@ -150,8 +150,9 @@ static void
 syscall_exec(int* argv, struct intr_frame * cf)
 {
     const char *cmd_line = *(char**) argv;
-    pid_t pid;
-    pid = process_execute(cmd_line);
+    pid_t pid = (pid_t) TID_ERROR;
+    if(valid_user_vaddr(cmd_line))
+        pid = process_execute(cmd_line);
 
     cf->eax = (uint32_t) pid;
 }
