@@ -7,6 +7,9 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "threads/synch.h"
+#include "filesys/filesys.h"
+#include "filesys/off_t.h"
 #include "devices/shutdown.h"
 #include <user/syscall.h>
 
@@ -17,6 +20,7 @@ static void syscall_write(int*, struct intr_frame*);
 static void syscall_halt(int*, struct intr_frame*);
 static void syscall_exec(int*, struct intr_frame*);
 static void syscall_wait(int*, struct intr_frame*);
+static void syscall_create(int*, struct intr_frame*);
 
 /* Utility methods */
 static bool valid_syscall_num(const int);
@@ -28,13 +32,16 @@ static void _exit(const int);
 typedef void (*syscall_func) (int*, struct intr_frame*);
 static syscall_func syscall_table[SYS_NUM];
 static int syscall_argc_table[SYS_NUM];
-
+static struct lock sys_filesys_lock;
 
 
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+
+  lock_init(&sys_filesys_lock);
+
 
   //sys_exit
   syscall_table[SYS_EXIT] = syscall_exit;
@@ -55,7 +62,30 @@ syscall_init (void)
   //wait
   syscall_table[SYS_WAIT] = syscall_wait;
   syscall_argc_table[SYS_WAIT] = 1;
+
+  //create
+  syscall_table[SYS_CREATE] = syscall_create;
+  syscall_argc_table[SYS_CREATE] = 2;
+
 }
+
+static void
+syscall_create(int* argv, struct intr_frame *f)
+{
+    const char *file = *(char**) argv++;
+    unsigned initial_size = *(unsigned *) argv;
+    bool success = false;
+
+    if(!valid_user_vaddr(file))
+        _exit(-1);
+    
+    lock_acquire(&sys_filesys_lock);
+    success  = filesys_create(file,(off_t)initial_size);
+    lock_release(&sys_filesys_lock);
+
+    f->eax =(uint32_t) success;
+}
+
 
 static void
 syscall_handler (struct intr_frame *f) 
