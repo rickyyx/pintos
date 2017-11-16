@@ -21,6 +21,7 @@ static void syscall_halt(int*, struct intr_frame*);
 static void syscall_exec(int*, struct intr_frame*);
 static void syscall_wait(int*, struct intr_frame*);
 static void syscall_create(int*, struct intr_frame*);
+static void syscall_open(int*, struct intr_frame*);
 
 /* Utility methods */
 static bool valid_syscall_num(const int);
@@ -66,7 +67,28 @@ syscall_init (void)
   //create
   syscall_table[SYS_CREATE] = syscall_create;
   syscall_argc_table[SYS_CREATE] = 2;
+    
+  //open
+  syscall_table[SYS_OPEN] = syscall_open;
+  syscall_argc_table[SYS_OPEN] = 1;
+}
 
+
+static void
+syscall_open(int * arg, struct intr_frame *f )
+{
+    const char * file = *(char**) argv;
+    int fd;
+    if(!valid_user_vaddr(file))
+        _exit(-1);
+
+    lock_acquire(&sys_filesys_lock);
+    fd = process_open(file);
+    lock_release(&sys_filesys_lock);
+
+    ASSERT(fd != STDIN_FILENO && fd != STDOUT_FILENO);
+
+    f->eax = (uint32_t) fd;
 }
 
 static void

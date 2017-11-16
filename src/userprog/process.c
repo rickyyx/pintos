@@ -12,6 +12,7 @@
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "filesys/fdtable.h"
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
@@ -27,6 +28,25 @@ static struct cmd_frame * parse_arguments(char*, const char*);
 static void done_child(struct thread *);
 
 static void zombie_destroy(struct thread *);
+
+
+/* Opens a file and returns the fd associated with that file. 
+ * Returns non-negative number on non-failure, -1 on failure. 
+ * Lock must be held entering the function */
+int
+process_open (const char * file_name)
+{
+    file * opened;
+    int fd = -1;
+
+    opened = filesys_open(file_name);
+    if(opened == NULL)
+        return FD_ERROR;
+    
+    /* Allocates a new fd */
+    return alloc_fd(opened); 
+}
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's

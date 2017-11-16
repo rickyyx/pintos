@@ -1,15 +1,85 @@
 #include "filesys/file.h"
 #include <debug.h>
+#include <math.h>
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "filesys/fdtable.h"
+#include "threads/thread.h"
 
-/* An open file. */
-struct file 
-  {
-    struct inode *inode;        /* File's inode. */
-    off_t pos;                  /* Current position. */
-    bool deny_write;            /* Has file_deny_write() been called? */
-  };
+
+/* Rely on the fact that l != ~0UL
+ * Return  [1, BITS_PER_LONG-1] */
+static
+unsigned int
+ffz(unsigned long l)
+{
+    unsigned long i = 0;
+    while(l & (1<<i++));
+
+    return i;
+}
+
+/* Slow version of finding next_zero_bit
+ * fast version: 
+ * @elixir.free-electrons.com/linux/v4.14/source/lib/find_bit.c#L31
+ */
+static
+unsigned int
+next_zero_bit(unsigned long * start, unsigned long size)
+{
+    unsigned long i;
+
+    for(i = 0; i * BITS_PER_LONG < size; i++) {
+        if(start[i] != ~0UL)
+            return min(size, BITS_PER_LONG * i + ffz(start[i]));
+    }
+
+    return size; 
+}
+
+
+
+/* Find the next available fd */
+static int
+find_next_fd(struct file_struct * fstruc){
+    struct fdtable * fdt;
+    unsigned int fd;
+
+    fdt = fstruc->fdt;
+    fd = next_zero_bit(fdt->open_fds, fdt->max_fds); 
+    
+    if(fd == fdt->max_fds)
+        return FD_ERROR; /* TODO: expanding the fdtable when 
+                            hitting max */
+    
+    return (int)(fd+FD_OFFSET);
+}
+
+
+//TODO
+static void
+assign_fd(int fd, struct file * file, struct file_struct * fstr)
+{
+    
+}
+
+/* Allocates a fd to the opened file. 
+ * TODO: opened file number is static for now (FILE_OPEN_NR) */
+int
+alloc_fd(struct file * file)
+{
+    struct thread * cur;
+    int next_fd;
+
+    cur = thread_current();
+    next_fd = find_next_fd(cur->files);
+    
+    if(next_fd != FD_ERROR)
+        assign_fd(next_fd, file, cur->files);
+    
+    return next_fd;
+}
+
 
 /* Opens a file for the given INODE, of which it takes ownership,
    and returns the new file.  Returns a null pointer if an
