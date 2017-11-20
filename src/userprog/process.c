@@ -36,7 +36,7 @@ static void zombie_destroy(struct thread *);
 int
 process_open (const char * file_name)
 {
-    file * opened;
+    struct file * opened;
     int fd = -1;
 
     opened = filesys_open(file_name);
@@ -232,6 +232,8 @@ done_child(struct thread * child)
 {
     list_remove(&child->parent_elem);
     free(child->exiting);
+    free(child->loading);
+    free_file_struct(child->files);
 
     palloc_free_page(child);
 }

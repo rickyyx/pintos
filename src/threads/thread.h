@@ -105,7 +105,7 @@ struct thread
     unsigned int flags;                 /* Flags, details defined below */ 
     struct semaphore * exiting;         /* Signal to parent that the thread is done */
     struct semaphore * loading;         /* Signal to parent that the thread is loaded */
-    struct files_struct * files;        /* Pointer to open files */
+    struct file_struct * files;        /* Pointer to open files */
 
 #endif
 

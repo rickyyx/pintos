@@ -7,10 +7,67 @@
 #include "threads/thread.h"
 
 
+
+struct file_struct *
+new_file_struct(void)
+{
+    struct file_struct * fstr;
+    struct fdtable *fdt;
+
+    fstr = malloc(sizeof(struct file_struct));
+    if(fstr == NULL)
+        goto end;
+    fdt =  malloc(sizeof(struct fdtable));
+    if(fdt == NULL)
+        goto done_fstr;
+
+    fdt->open_fds = calloc(1, sizeof(unsigned long) * FD_MAX_NR/BITS_PER_LONG);
+    if(fdt->open_fds == NULL)
+        goto done_fdt;
+
+    fdt->max_fds = FD_MAX_NR;
+    fdt->fd = calloc(1, sizeof(struct file *) * FD_MAX_NR);
+    if(fdt->fd == NULL)
+        goto done_open_fds;
+
+    fstr->fdt = fdt;
+    fstr->count = 0;
+
+
+    return fstr;
+
+done_open_fds:
+   free(fdt->open_fds); 
+
+done_fdt:
+    free(fdt);
+
+done_fstr:
+    free(fstr); 
+end:
+    return NULL;
+
+}
+
+
+/* Frees a file_struct */
+void
+free_file_struct(struct file_struct * fs)
+{
+    ASSERT(fs != NULL && fs->fdt != NULL);
+
+    free(fs->fdt->fd);
+    free(fs->fdt->open_fds);
+    free(fs->fdt);
+    free(fs);
+
+    return;
+}
+
 /* Rely on the fact that l != ~0UL
  * Return  [1, BITS_PER_LONG-1] */
 static
-unsigned int
+unsigned long
 ffz(unsigned long l)
 {
     unsigned long i = 0;
@@ -56,11 +113,15 @@ find_next_fd(struct file_struct * fstruc){
 }
 
 
-//TODO
+/* Assign a file * to a fd */
 static void
 assign_fd(int fd, struct file * file, struct file_struct * fstr)
 {
-    
+   struct file ** fd_arr;
+   ASSERT(fstr != NULL);
+
+   fd_arr = fstr->fdt->fd;
+   fd_arr[fd] = file;
 }
 
 /* Allocates a fd to the opened file. 

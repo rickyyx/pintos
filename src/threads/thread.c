@@ -15,6 +15,8 @@
 #include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "filesys/fdtable.h"
+#include "filesys/file.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -215,6 +217,9 @@ thread_create (const char *name, int priority,
     struct semaphore * sema_loading = malloc(sizeof(struct semaphore));
     sema_init(sema_loading, 0);
     t->loading = sema_loading;
+
+    /* Init filesys related structs */
+    t->files = new_file_struct();
 
     /* Stack frame for kernel_thread(). */
     kf = alloc_frame (t, sizeof *kf);

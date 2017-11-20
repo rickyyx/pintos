@@ -75,7 +75,7 @@ syscall_init (void)
 
 
 static void
-syscall_open(int * arg, struct intr_frame *f )
+syscall_open(int * argv, struct intr_frame *f )
 {
     const char * file = *(char**) argv;
     int fd;
