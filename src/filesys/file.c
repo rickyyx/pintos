@@ -94,6 +94,24 @@ next_zero_bit(unsigned long * start, unsigned long size)
     return size; 
 }
 
+static void
+flip_bit(unsigned long * open_fds, unsigned long bit)
+{
+    unsigned long bits;
+    unsigned int start;
+
+    start = 0;
+    bit--;
+    while(bit >= BITS_PER_LONG){
+        bit -= BITS_PER_LONG;
+        start++;
+    }
+
+    bits = open_fds[start];
+    open_fds[start] = bits ^ (1UL << bit);
+}
+
+
 
 
 /* Find the next available fd */
@@ -112,8 +130,19 @@ find_next_fd(struct file_struct * fstruc){
     return (int)(fd+FD_OFFSET);
 }
 
+static void
+set_fd(int fd, struct file_struct * fstr)
+{
+    unsigned long fd_bit;
+    ASSERT(fd > FD_OFFSET);
 
-/* Assign a file * to a fd */
+    fd_bit = (unsigned long) (fd - FD_OFFSET);
+    
+    flip_bit(fstr->fdt->open_fds, fd_bit);
+
+}
+
+/* Assign a file * to a fd, and marks the fd bit*/
 static void
 assign_fd(int fd, struct file * file, struct file_struct * fstr)
 {
@@ -122,6 +151,8 @@ assign_fd(int fd, struct file * file, struct file_struct * fstr)
 
    fd_arr = fstr->fdt->fd;
    fd_arr[fd] = file;
+
+   set_fd(fd, fstr);
 }
 
 /* Allocates a fd to the opened file. 
