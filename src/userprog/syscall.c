@@ -9,9 +9,11 @@
 #include "threads/malloc.h"
 #include "threads/synch.h"
 #include "filesys/filesys.h"
+#include "filesys/file.h"
 #include "filesys/fdtable.h"
 #include "filesys/off_t.h"
 #include "devices/shutdown.h"
+#include "devices/input.h"
 #include <user/syscall.h>
 
 /* Syscalls */
@@ -25,11 +27,13 @@ static void syscall_create(int*, struct intr_frame*);
 static void syscall_open(int*, struct intr_frame*);
 static void syscall_close(int*, struct intr_frame*);
 static void syscall_filesize(int*, struct intr_frame *);
+static void syscall_read(int*, struct intr_frame *);
 
 /* Utility methods */
 static bool valid_syscall_num(const int);
 static bool get_syscall_argv(int, int*, int*);
 static bool valid_user_vaddr(const void*);
+static bool valid_fd(int);
 
 static void _exit(const int);
 
@@ -50,6 +54,10 @@ syscall_init (void)
   //sys_exit
   syscall_table[SYS_EXIT] = syscall_exit;
   syscall_argc_table[SYS_EXIT] = 1;
+
+  //read
+  syscall_table[SYS_READ] = syscall_read;
+  syscall_argc_table[SYS_READ] = 3;
 
   //write
   syscall_table[SYS_WRITE] = syscall_write;
@@ -94,9 +102,45 @@ syscall_filesize(int * argv, struct intr_frame*f)
         lock_acquire(&sys_filesys_lock);
         f->eax =(uint32_t)file_size(fd);
         lock_release(&sys_filesys_lock);
+    } else {
+        f->eax = (uint32_t) 0;
     }
+}
+
+static void
+syscall_read(int * argv, struct intr_frame * f)
+{
+    int fd = *(int*) argv++;
+    void * buffer = * (void**) argv++;
+    unsigned size = *(unsigned *) argv, i;
+    struct file * file;
+    uint8_t* buf_stdin;
+    off_t ret = -1;
     
-    f->eax = (uint32_t) 0;
+    
+    if((!valid_user_vaddr(buffer))
+            || (!valid_fd(fd) && fd != STDIN_FILENO))
+        _exit(-1);
+
+    if(fd == STDIN_FILENO){
+        ret = 0;
+        i = 0;
+        buf_stdin = (uint8_t*) buffer;
+        while(i < size) {
+            *buf_stdin++ = input_getc();    
+            ret++; i++;
+        }
+    } else {
+        lock_acquire(&sys_filesys_lock);
+
+        file = fd_file(fd);
+        if(file != NULL){
+            ret = file_read(file, buffer, (off_t) size);
+        }
+        lock_release(&sys_filesys_lock);
+    }
+
+    f->eax = (uint32_t) ret;
 }
 
 static void
@@ -252,3 +296,11 @@ syscall_wait(int* argv, struct intr_frame * cf)
     cf->eax = process_wait((tid_t)pid);
 }
 
+static bool
+valid_fd(int fd)
+{
+    if(fd - FD_OFFSET < FD_MAX_NR && fd -FD_OFFSET >=0) {
+        return true;
+    } else 
+        return false;
+}
