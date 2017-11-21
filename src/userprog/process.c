@@ -26,6 +26,7 @@ static thread_func start_process NO_RETURN;
 static bool load(const struct cmd_frame *, void (**eip) (void), void **);
 static struct cmd_frame * parse_arguments(char*, const char*);
 static void done_child(struct thread *);
+static void done_files(struct thread *);
 
 static void zombie_destroy(struct thread *);
 
@@ -243,7 +244,6 @@ done_child(struct thread * child)
     list_remove(&child->parent_elem);
     free(child->exiting);
     free(child->loading);
-    free_file_struct(child->files);
 
     palloc_free_page(child);
 }
@@ -261,6 +261,9 @@ process_exit (void)
   /* Clean up the zombie children thread_struct */
   zombie_destroy (cur);
 
+  /* Close all open files */
+  done_files(cur);
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -277,6 +280,23 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+}
+
+static void
+done_files(struct thread *t)
+{
+    struct file_struct * fstr;
+    int i;
+    struct file * file;
+    
+    fstr = t->files;
+    
+    for(i = 0; i < FD_MAX_NR; i++) {
+        file = fstr->fdt->fd[i];
+        file_close(file);
+    }
+
+    free_file_struct(fstr);
 }
 
 /* Free the thread struct resources of all the zombie children */
