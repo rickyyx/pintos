@@ -24,6 +24,8 @@ int alloc_fd(struct file *);
 struct file_struct* new_file_struct(void);
 void free_file_struct(struct file_struct*);
 
+void unset_fd_bit(unsigned long *, unsigned long);
+
 
 
 #endif /* filesys/fdtable.h */

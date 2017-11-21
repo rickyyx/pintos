@@ -29,6 +29,17 @@ static void done_child(struct thread *);
 
 static void zombie_destroy(struct thread *);
 
+/* Closes a open file */
+void
+process_close(unsigned long fdbit)
+{
+    struct file_struct * fstr;
+     fstr = thread_current() -> files;
+    
+    file_close(fstr->fdt->fd[fdbit]);
+    unset_fd_bit(fstr->fdt->open_fds, fdbit);
+}
+
 
 /* Opens a file and returns the fd associated with that file. 
  * Returns non-negative number on non-failure, -1 on failure. 
@@ -37,7 +48,6 @@ int
 process_open (const char * file_name)
 {
     struct file * opened;
-    int fd = -1;
 
     opened = filesys_open(file_name);
     if(opened == NULL)

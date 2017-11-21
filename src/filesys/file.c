@@ -7,6 +7,7 @@
 #include "threads/thread.h"
 
 
+static void flip_bit(unsigned long *, unsigned long);
 
 struct file_struct *
 new_file_struct(void)
@@ -64,6 +65,7 @@ free_file_struct(struct file_struct * fs)
     return;
 }
 
+
 /* Rely on the fact that l != ~0UL
  * Return  [1, BITS_PER_LONG-1] */
 static
@@ -94,7 +96,7 @@ next_zero_bit(unsigned long * start, unsigned long size)
     return size; 
 }
 
-static void
+void
 flip_bit(unsigned long * open_fds, unsigned long bit)
 {
     unsigned long bits;
@@ -102,16 +104,25 @@ flip_bit(unsigned long * open_fds, unsigned long bit)
 
     start = 0;
     bit--;
-    while(bit >= BITS_PER_LONG){
-        bit -= BITS_PER_LONG;
-        start++;
-    }
 
-    bits = open_fds[start];
+    bits = open_fds[start+bit/BITS_PER_LONG];
     open_fds[start] = bits ^ (1UL << bit);
 }
 
 
+static void
+set_bit(unsigned long * start, unsigned long bit, bool to_one)
+{
+    unsigned long bits, i, offset, remain;
+    i = 0;
+    bit--;
+    
+    offset = bit/BITS_PER_LONG;
+    remain = bit%BITS_PER_LONG;
+    bits = start[i + offset];
+    start[i+offset] = (to_one ? (bits | (1UL << remain)) 
+            : (bits & ~(1UL << remain)));
+}
 
 
 /* Find the next available fd */
@@ -128,6 +139,14 @@ find_next_fd(struct file_struct * fstruc){
                             hitting max */
     
     return (int)(fd+FD_OFFSET);
+}
+
+
+/* TODO: handle explicitly unset the bit */
+void
+unset_fd_bit(unsigned long * open_fds, unsigned long bit)
+{
+    set_bit(open_fds, bit, false);
 }
 
 static void

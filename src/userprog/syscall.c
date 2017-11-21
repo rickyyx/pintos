@@ -9,6 +9,7 @@
 #include "threads/malloc.h"
 #include "threads/synch.h"
 #include "filesys/filesys.h"
+#include "filesys/fdtable.h"
 #include "filesys/off_t.h"
 #include "devices/shutdown.h"
 #include <user/syscall.h>
@@ -22,6 +23,7 @@ static void syscall_exec(int*, struct intr_frame*);
 static void syscall_wait(int*, struct intr_frame*);
 static void syscall_create(int*, struct intr_frame*);
 static void syscall_open(int*, struct intr_frame*);
+static void syscall_close(int*, struct intr_frame*);
 
 /* Utility methods */
 static bool valid_syscall_num(const int);
@@ -71,6 +73,23 @@ syscall_init (void)
   //open
   syscall_table[SYS_OPEN] = syscall_open;
   syscall_argc_table[SYS_OPEN] = 1;
+
+  //close
+  syscall_table[SYS_CLOSE] = syscall_close;
+  syscall_argc_table[SYS_CLOSE] = 1;
+}
+
+
+static void
+syscall_close(int * argv, struct intr_frame *f UNUSED)
+{
+    int fd = *(int*) argv;
+    
+    if(fd - FD_OFFSET < FD_MAX_NR && fd -FD_OFFSET >=0) {
+        lock_acquire(&sys_filesys_lock);
+        process_close((unsigned long) fd-FD_OFFSET);
+        lock_release(&sys_filesys_lock);
+    }
 }
 
 
