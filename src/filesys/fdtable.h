@@ -1,6 +1,8 @@
 #ifndef FILESYS_FDTABLE_H
 #define FILESYS_FDTABLE_H
 
+#include "filesys/off_t.h"
+
 struct file_struct {
     struct fdtable * fdt;       /* pointer to fd table */
     int count;
@@ -19,6 +21,10 @@ struct fdtable {
 
     unsigned long * open_fds;
 };
+
+
+struct file* fd_file(int);
+off_t file_size(int fd);
 
 int alloc_fd(struct file *);
 struct file_struct* new_file_struct(void);

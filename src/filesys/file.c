@@ -9,6 +9,19 @@
 
 static void flip_bit(unsigned long *, unsigned long);
 
+
+struct file*
+fd_file(int _fd)
+{
+    struct thread * cur;
+    cur = thread_current();
+
+    ASSERT(cur->files != NULL && cur->files->fdt != NULL 
+            && cur->files->fdt->fd != NULL);
+
+    return cur->files->fdt->fd[_fd];
+}
+
 struct file_struct *
 new_file_struct(void)
 {
@@ -319,6 +332,18 @@ file_allow_write (struct file *file)
       file->deny_write = false;
       inode_allow_write (file->inode);
     }
+}
+
+int
+file_size (int fd)
+{
+    struct file * file;
+    file = fd_file(fd);
+
+    if(file != NULL)
+        return file_length(file);
+
+    return 0;
 }
 
 /* Returns the size of FILE in bytes. */

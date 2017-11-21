@@ -24,6 +24,7 @@ static void syscall_wait(int*, struct intr_frame*);
 static void syscall_create(int*, struct intr_frame*);
 static void syscall_open(int*, struct intr_frame*);
 static void syscall_close(int*, struct intr_frame*);
+static void syscall_filesize(int*, struct intr_frame *);
 
 /* Utility methods */
 static bool valid_syscall_num(const int);
@@ -77,8 +78,26 @@ syscall_init (void)
   //close
   syscall_table[SYS_CLOSE] = syscall_close;
   syscall_argc_table[SYS_CLOSE] = 1;
+
+  //filesize
+  syscall_table[SYS_FILESIZE] = syscall_filesize;
+  syscall_argc_table[SYS_FILESIZE] = 1;
 }
 
+
+static void
+syscall_filesize(int * argv, struct intr_frame*f)
+{
+    int fd = *(int*) argv;
+
+    if(fd - FD_OFFSET < FD_MAX_NR && fd -FD_OFFSET >=0) {
+        lock_acquire(&sys_filesys_lock);
+        f->eax =(uint32_t)file_size(fd);
+        lock_release(&sys_filesys_lock);
+    }
+    
+    f->eax = (uint32_t) 0;
+}
 
 static void
 syscall_close(int * argv, struct intr_frame *f UNUSED)
@@ -174,8 +193,6 @@ get_syscall_argv(const int syscall_num, int * argv, int* esp)
 static bool 
 valid_user_vaddr(const void * addr)
 {
-    //TODO: Check if the page is mapped 
-    
     return (addr != NULL && is_user_vaddr(addr) 
             && lookup_page(thread_current()->pagedir, addr, false) != NULL);
 }
