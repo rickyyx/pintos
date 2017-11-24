@@ -97,8 +97,35 @@ syscall_init (void)
   syscall_table[SYS_SEEK] = syscall_seek;
   syscall_argc_table[SYS_SEEK] = 2;
 
+  //tell
+  syscall_table[SYS_TELL] = syscall_tell;
+  syscall_argc_table[SYS_TELL] = 1;
+
 }
 
+static void
+syscall_tell(int* argv, struct intr_frame * f)
+{
+    int fd = *(int*) argv++;
+    struct file * file;
+    off_t offset;
+
+    if(!valid_fd(fd))
+        _exit(-1);
+
+    file = file_fd(fd);
+    if(file == NULL) {
+        offset = 0;
+        goto end;
+    }
+
+    lock_acquire(&sys_filesys_lock);
+    offset = file_tell(file);
+    lock_release(&sys_filesys_lock);
+
+end:
+    f->eax = (uint32_t) offset;
+}
 
 static void
 syscall_seek(int* argv, struct intr_frame* f UNUSED)
