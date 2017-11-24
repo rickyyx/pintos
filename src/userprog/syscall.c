@@ -28,6 +28,8 @@ static void syscall_open(int*, struct intr_frame*);
 static void syscall_close(int*, struct intr_frame*);
 static void syscall_filesize(int*, struct intr_frame *);
 static void syscall_read(int*, struct intr_frame *);
+static void syscall_seek(int*, struct intr_frame *);
+static void syscall_tell(int*, struct intr_frame*);
 
 /* Utility methods */
 static bool valid_syscall_num(const int);
@@ -90,6 +92,33 @@ syscall_init (void)
   //filesize
   syscall_table[SYS_FILESIZE] = syscall_filesize;
   syscall_argc_table[SYS_FILESIZE] = 1;
+
+  //seek
+  syscall_table[SYS_SEEK] = syscall_seek;
+  syscall_argc_table[SYS_SEEK] = 2;
+
+}
+
+
+static void
+syscall_seek(int* argv, struct intr_frame* f UNUSED)
+{
+    int fd = *(int*) argv++;
+    unsigned pos = *(unsigned *) argv;
+
+    struct file * file;
+    
+    if(!valid_fd(fd))
+        _exit(-1);
+
+    file = fd_file(fd);
+
+    if(file == NULL)
+        return;
+
+    lock_acquire(&sys_filesys_lock);
+    file_seek(file, (off_t) pos);    
+    lock_release(&sys_filesys_lock);
 }
 
 
