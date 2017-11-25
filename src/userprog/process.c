@@ -264,6 +264,9 @@ process_exit (void)
   /* Close all open files */
   done_files(cur);
 
+  /*  Close itself  */
+  file_close(cur->exe);
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -510,8 +513,10 @@ load (const struct cmd_frame *cf, void (**eip) (void), void **esp)
   /* Set up stack. */
   if (!setup_stack (esp, cf))
     goto done;
-
-  /* Prepare the user stack arguments */
+    
+  /*  Mark as non writable  */
+  file_deny_write(file);
+  t->exe = file;
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
@@ -520,7 +525,6 @@ load (const struct cmd_frame *cf, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
   return success;
 }
 /* load() helpers. */

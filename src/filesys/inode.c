@@ -317,6 +317,13 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   return bytes_written;
 }
 
+/* 
+ * Is this inode writable
+ */
+inline bool
+inode_can_write(struct inode *inode) {
+    return inode->deny_write_cnt == 0; 
+}
 /* Disables writes to INODE.
    May be called at most once per inode opener. */
 void

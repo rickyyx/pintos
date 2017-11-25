@@ -12,6 +12,7 @@
 #include "filesys/file.h"
 #include "filesys/fdtable.h"
 #include "filesys/off_t.h"
+#include "filesys/inode.h"
 #include "devices/shutdown.h"
 #include "devices/input.h"
 #include <user/syscall.h>
@@ -113,7 +114,7 @@ syscall_tell(int* argv, struct intr_frame * f)
     if(!valid_fd(fd))
         _exit(-1);
 
-    file = file_fd(fd);
+    file = fd_file(fd);
     if(file == NULL) {
         offset = 0;
         goto end;
@@ -312,12 +313,29 @@ syscall_write(int* argv, struct intr_frame * cf)
     int fd = *(int*)argv++;
     void * buffer = *(void**) argv++;
     unsigned size = *(unsigned*)argv++;
+    struct file * file;
     
-    if(fd == 1) {
-        putbuf(buffer, size);
+    if(!(valid_fd(fd) || fd == STDOUT_FILENO || fd == STDERR_FILENO)
+            || !valid_user_vaddr(buffer)) {
+       _exit(-1); 
     }
 
-    //TODO: fd != 1?
+    if(fd == STDOUT_FILENO)
+        putbuf(buffer, size);
+    else {
+        if((file=fd_file(fd)) == NULL)
+            _exit(-1);
+
+        if(!inode_can_write(file->inode)) { 
+            size = 0;
+            goto end;
+        }
+
+        lock_acquire(&sys_filesys_lock);
+        size = file_write(file, buffer, (off_t) size);
+        lock_release(&sys_filesys_lock);
+    }
+end: 
     cf->eax = (uint32_t) size;
 }
 
