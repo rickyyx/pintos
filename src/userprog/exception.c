@@ -2,6 +2,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include "userprog/gdt.h"
+#include "userprog/syscall.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
@@ -90,6 +91,7 @@ kill (struct intr_frame *f)
               thread_name (), f->vec_no, intr_name (f->vec_no));
       intr_dump_frame (f);
       thread_current() -> flags |= PF_KILLED;
+      thread_current() -> exit_status = -1;
       thread_exit (); 
 
     case SEL_KCSEG:

@@ -200,7 +200,6 @@ alloc_fd(struct file * file)
     
     if(next_fd != FD_ERROR)
         assign_fd(next_fd, file, cur->files);
-    
     return next_fd;
 }
 

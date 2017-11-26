@@ -204,6 +204,8 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
+  t->aux = aux;
+
     /* Set up its relationship to parent */
     parent = thread_current();
     t->parent = parent;
@@ -320,6 +322,9 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
   struct thread * running;
+  
+  running = thread_current();
+  printf ("%s: exit(%d)\n",running->name, running->exit_status);
 
 #ifdef USERPROG
   process_exit ();
@@ -330,7 +335,8 @@ thread_exit (void)
        when it calls thread_schedule_tail(). */
     intr_disable ();
     list_remove (&thread_current()->allelem);
-    running = thread_current();
+
+    /* aux no longer needed */
     
     /* Signal parent */
     sema_up(running->exiting);
@@ -589,7 +595,7 @@ thread_schedule_tail (struct thread *prev)
             /* Keep the struct if parent still around */
     {
         ASSERT (prev != cur);
-        free(prev->exiting);
+        done_child(prev);
         palloc_free_page (prev);
     }
 }

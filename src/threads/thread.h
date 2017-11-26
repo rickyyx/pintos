@@ -107,6 +107,7 @@ struct thread
     struct semaphore * loading;         /* Signal to parent that the thread is loaded */
     struct file_struct * files;        /* Pointer to open files */
     struct file * exe;                  /* Executable file pointer, owned by process.c:load*/
+    void * aux;                         /* For storing the pointer to aux data*/
 
 #endif
 

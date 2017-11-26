@@ -26,11 +26,13 @@ static void syscall_exec(int*, struct intr_frame*);
 static void syscall_wait(int*, struct intr_frame*);
 static void syscall_create(int*, struct intr_frame*);
 static void syscall_open(int*, struct intr_frame*);
+static void syscall_remove(int*, struct intr_frame*);
 static void syscall_close(int*, struct intr_frame*);
 static void syscall_filesize(int*, struct intr_frame *);
 static void syscall_read(int*, struct intr_frame *);
 static void syscall_seek(int*, struct intr_frame *);
 static void syscall_tell(int*, struct intr_frame*);
+
 
 /* Utility methods */
 static bool valid_syscall_num(const int);
@@ -101,6 +103,10 @@ syscall_init (void)
   //tell
   syscall_table[SYS_TELL] = syscall_tell;
   syscall_argc_table[SYS_TELL] = 1;
+
+  //remove
+  syscall_table[SYS_REMOVE] = syscall_remove;
+  syscall_argc_table[SYS_REMOVE] = 1;
 
 }
 
@@ -198,6 +204,19 @@ syscall_read(int * argv, struct intr_frame * f)
     }
 
     f->eax = (uint32_t) ret;
+}
+
+static void
+syscall_remove(int * argv, struct intr_frame *f)
+{
+
+    const char * file = *(char**) argv;
+    if(!valid_user_vaddr(file))
+        _exit(-1);
+
+    lock_acquire(&sys_filesys_lock);
+    f->eax = filesys_remove(file);
+    lock_release(&sys_filesys_lock);
 }
 
 static void
@@ -302,7 +321,6 @@ static void
 _exit(int status)
 {
     struct thread * cur = thread_current();
-    printf ("%s: exit(%d)\n",cur->name, status);
     cur->exit_status = status;
     thread_exit();
 }

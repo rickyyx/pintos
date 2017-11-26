@@ -20,4 +20,6 @@ void process_activate (void);
 int process_open(const char * file_name);
 void process_close(unsigned long);
 
+void done_child(struct thread *);
+
 #endif /* userprog/process.h */

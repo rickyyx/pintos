@@ -25,8 +25,9 @@
 static thread_func start_process NO_RETURN;
 static bool load(const struct cmd_frame *, void (**eip) (void), void **);
 static struct cmd_frame * parse_arguments(char*, const char*);
-static void done_child(struct thread *);
+//static void done_child(struct thread *);
 static void done_files(struct thread *);
+static void done_sema(struct thread *);
 
 static void zombie_destroy(struct thread *);
 
@@ -49,13 +50,20 @@ int
 process_open (const char * file_name)
 {
     struct file * opened;
-
+    int fd;
     opened = filesys_open(file_name);
     if(opened == NULL)
         return FD_ERROR;
     
     /* Allocates a new fd */
-    return alloc_fd(opened); 
+    fd = alloc_fd(opened); 
+
+    if(fd == FD_ERROR) {
+        file_close(opened);
+        return FD_ERROR;
+    }
+
+    return fd;
 }
 
 /* Starts a new thread running a user program loaded from
@@ -81,6 +89,10 @@ process_execute (const char *file_name)
     
   /* Break the exe name from the args */
   file_name_copy = palloc_get_page(0);
+  if(file_name_copy == NULL) {
+      palloc_free_page(ptr);
+       return TID_ERROR;
+  }
   strlcpy(file_name_copy, file_name, PGSIZE);
   file_name_copy = strtok_r(file_name_copy, " ", &save_ptr); 
 
@@ -88,20 +100,21 @@ process_execute (const char *file_name)
   tid = thread_create (file_name_copy, PRI_DEFAULT, start_process, cf_ptr);
 
   if (tid == TID_ERROR){
-      palloc_free_page(cf_ptr);  
       goto done;
   }
 
   /* Wait for child to be loaded */
   cur = thread_current();
   child = thread_child_tid(cur, tid);
-  if(child != NULL)
+  if(child != NULL && child->loading != NULL)
     sema_down(child->loading);
 
-  if(cur->err)
+  if(cur->err) {
       tid = TID_ERROR;
+  }
 
 done:
+  palloc_free_page(file_name_copy);
   return tid;
 }
 
@@ -128,7 +141,10 @@ parse_arguments(char * ptr, const char * file_name)
 
   /* Copy comand line to the temp holder */
   tmp_cmd = palloc_get_page(0);
-  strlcpy(tmp_cmd, file_name, PGSIZE);
+
+  /* TODO: */
+  if(tmp_cmd != NULL) 
+    strlcpy(tmp_cmd, file_name, PGSIZE);
   
   /* Parsed tokens */
   for(token = strtok_r(tmp_cmd,delim, &parsed); token != NULL;
@@ -140,7 +156,9 @@ parse_arguments(char * ptr, const char * file_name)
       ptr+=(strlen(token)+1);
   }
 
-
+    
+  /*  Free the temp page */
+  palloc_free_page(tmp_cmd);
   return cf_ptr;
 }
 
@@ -165,12 +183,13 @@ start_process (void *cmd_frame_)
   success = load (cf, &if_.eip, &if_.esp);
   
   /* If load failed, quit. */
-  palloc_free_page (cf); 
+  //palloc_free_page (cmd_frame_); 
     
   par = thread_current() -> parent;
   ASSERT(par != NULL);
   if (!success) {
     par->err = ERROR_LOAD;
+    thread_current()->exit_status = -1;
   }
 
   sema_up(thread_current()->loading);
@@ -242,9 +261,7 @@ void
 done_child(struct thread * child) 
 {
     list_remove(&child->parent_elem);
-    free(child->exiting);
-    free(child->loading);
-
+    done_sema(child);
     palloc_free_page(child);
 }
 
@@ -267,6 +284,9 @@ process_exit (void)
   /*  Close itself  */
   file_close(cur->exe);
 
+  /* Free aux */
+  palloc_free_page(cur->aux);
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -283,6 +303,15 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+}
+
+static void
+done_sema(struct thread *t) {
+    free(t->exiting);
+    t->exiting = NULL;
+
+    free(t->loading);
+    t->loading = NULL;
 }
 
 static void
@@ -509,14 +538,14 @@ load (const struct cmd_frame *cf, void (**eip) (void), void **esp)
           break;
         }
     }
+  /*  Mark as non writable  */
+  file_deny_write(file);
+  t->exe = file;
 
   /* Set up stack. */
   if (!setup_stack (esp, cf))
     goto done;
     
-  /*  Mark as non writable  */
-  file_deny_write(file);
-  t->exe = file;
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
