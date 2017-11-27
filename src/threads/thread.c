@@ -362,7 +362,7 @@ thread_child_tid(struct thread * par, tid_t c_tid)
 thread_create (const char *name, int priority,
         thread_func *function, void *aux) 
 {
-    struct thread *t, *cur;
+    struct thread *t, *cur, *parent;
     struct kernel_thread_frame *kf;
     struct switch_entry_frame *ef;
     struct switch_threads_frame *sf;
