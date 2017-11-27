@@ -3,7 +3,7 @@ Ongoing personal development on Pintos.
 Please refer to the DesignDoc for various Project (named PROJECT_X) 
 
 ### Progress Tracking
-- [x] Project 1 ( [Design Doc](../PROJECT_1)
+- [x] Project 1 ( [Design Doc](PROJECT_1))
 ```
  src/devices/timer.c   |   6 +-
  src/lib/fpoint.h      |  21 ++
@@ -15,7 +15,7 @@ Please refer to the DesignDoc for various Project (named PROJECT_X)
  src/threads/thread.h  |  42 ++-
 ```
 
-- [x] Project 2 ( [File Descriptors Notes](../PROJECT_2.fd.md))
+- [x] Project 2 ( [File Descriptors Notes](PROJECT_2.fd.md))
 ```
  src/.gitignore           |   5 ++
  src/Makefile             |   7 +-
