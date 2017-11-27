@@ -15,7 +15,7 @@ Please refer to the DesignDoc for various Project (named PROJECT_X)
  src/threads/thread.h  |  42 ++-
 ```
 
-- [x] Project 2 ( [File Descriptors Notes](PROJECT_2.fd.md))
+- [x] Project 2 ( [File Descriptors Notes](PROJECT_2.fs.md))
 ```
  src/.gitignore           |   5 ++
  src/Makefile             |   7 +-
