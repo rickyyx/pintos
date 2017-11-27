@@ -3,6 +3,7 @@
 
 #include <debug.h>
 #include <list.h>
+#include "synch.h"
 #include <stdint.h>
 
 /* States in a thread's life cycle. */
@@ -126,6 +127,19 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    //P2
+    struct thread * parent;              /* Pointer to the parent process */
+    struct list children;               /* List of children */
+    struct list_elem parent_elem;       /* Its parent's childrent list elem */
+    int err;                            /* For Error code */
+    int exit_status;                    /* Exit status */
+    unsigned int flags;                 /* Flags, details defined below */ 
+    struct semaphore exiting;         /* Signal to parent that the thread is done */
+    struct semaphore loading;         /* Signal to parent that the thread is loaded */
+    struct file_struct * files;        /* Pointer to open files */
+    struct file * exe;                  /* Executable file pointer, owned by process.c:load*/
+    void * aux;                         /* For storing the pointer to aux data*/
+
 #endif
     
     /* Owned by thread.c. */
@@ -175,5 +189,11 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+//P2
+struct thread * thread_child_tid(struct thread *, tid_t);
+
+#define PF_EXITING      0x00000002      /* Thread exiting */
+#define PF_KILLED       0x00000004      /* Killed by Kernel */
 
 #endif /* threads/thread.h */

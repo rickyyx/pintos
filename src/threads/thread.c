@@ -13,8 +13,11 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "devices/timer.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "filesys/fdtable.h"
+#include "filesys/file.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -323,6 +326,23 @@ thread_print_stats (void)
             idle_ticks, kernel_ticks, user_ticks);
 }
 
+/* Get the child process based on c_tid. Returns NULL if not found */
+struct thread *
+thread_child_tid(struct thread * par, tid_t c_tid)
+{
+    struct list_elem *e;
+    struct thread * child;
+
+    list_for_each_entry(e, par->children)
+    {
+        child = list_entry(e, struct thread, parent_elem);
+        if(child->tid == c_tid)
+            return child;
+    }
+
+    return NULL;
+}
+
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
    and adds it to the ready queue.  Returns the thread identifier
@@ -359,6 +379,20 @@ thread_create (const char *name, int priority,
     cur = thread_current();
     init_thread (t, name, priority, cur->nice,cur->recent_cpu);
     tid = t->tid = allocate_tid ();
+    
+    t->aux = aux;
+
+    /* Set up its relationship to parent */
+    parent = thread_current();
+    t->parent = parent;
+    list_push_back(&parent->children, &t->parent_elem);
+
+    /* Init semaphore */
+    sema_init(&t->exiting, 0);
+    sema_init(&t->loading, 0);
+
+    /* Init filesys related structs */
+    t->files = new_file_struct();
 
     /* Stack frame for kernel_thread(). */
     kf = alloc_frame (t, sizeof *kf);
@@ -466,9 +500,12 @@ thread_tid (void)
     void
 thread_exit (void) 
 {
-    ASSERT (!intr_context ());
+  ASSERT (!intr_context ());
+  struct thread * running;
+  
+  running = thread_current();
+  printf ("%s: exit(%d)\n",running->name, running->exit_status);
 
-    struct thread * running;
 #ifdef USERPROG
     process_exit ();
 #endif
@@ -479,7 +516,11 @@ thread_exit (void)
     intr_disable ();
     list_remove (&thread_current()->allelem);
     running = thread_current();
+    
+    /* Signal parent */
+    sema_up(&running->exiting);
     running->status = THREAD_DYING;
+
     schedule ();
     NOT_REACHED ();
 }
@@ -841,6 +882,7 @@ init_thread (struct thread *t, const char *name, int priority, int nice,
     t->static_priority = priority;
 
     list_init(&t->donors);
+    list_init(&t->children);
 
     old_level = intr_disable ();
     list_push_back (&all_list, &t->allelem);
@@ -936,10 +978,12 @@ thread_schedule_tail (struct thread *prev)
        pull out the rug under itself.  (We don't free
        initial_thread because its memory was not obtained via
        palloc().) */
-    if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
+    if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread
+            && (prev->parent == NULL || prev->parent->flags & PF_EXITING))
+            /* Keep the struct if parent still around */
     {
         ASSERT (prev != cur);
-        palloc_free_page (prev);
+        done_child(prev);
     }
 }
 
@@ -1009,7 +1053,6 @@ allocate_tid (void)
 
     return tid;
 }
-
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);

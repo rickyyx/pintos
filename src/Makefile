@@ -1,5 +1,11 @@
 BUILD_SUBDIRS = threads userprog vm filesys
 
+push: clean
+	rsync -avz --no-perms ./ chen11@corn.stanford.edu:~/private/pintos/src/
+
+pull:
+	rsync -avz --no-perms chen11@corn.stanford.edu:~/private/pintos/src/ ./
+
 all::
 	@echo "Run 'make' in subdirectories: $(BUILD_SUBDIRS)."
 	@echo "This top-level make has only 'clean' targets."
@@ -8,7 +14,6 @@ CLEAN_SUBDIRS = $(BUILD_SUBDIRS) examples utils
 
 clean::
 	for d in $(CLEAN_SUBDIRS); do $(MAKE) -C $$d $@; done
-	rm -f TAGS tags
 
 distclean:: clean
 	find . -name '*~' -exec rm '{}' \;
