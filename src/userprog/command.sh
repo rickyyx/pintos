@@ -5,6 +5,7 @@
 
 cd build/ &&
 make tests/userprog/no-vm/*.result VERBOSE=1
+#make tests/userprog/write-*.result VERBOSE=1
 
 #pintos --gdb --filesys-size=2 -p tests/userprog/args-multiple -a args-multiple -- -q  -f run 'args-multiple some arguments for you!' < /dev/null 2> tests/userprog/args-multiple.errors |tee tests/userprog/args-multiple.output
 

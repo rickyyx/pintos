@@ -3,6 +3,7 @@
 
 #include <debug.h>
 #include <list.h>
+#include "synch.h"
 #include <stdint.h>
 
 /* States in a thread's life cycle. */
@@ -103,8 +104,8 @@ struct thread
     int err;                            /* For Error code */
     int exit_status;                    /* Exit status */
     unsigned int flags;                 /* Flags, details defined below */ 
-    struct semaphore * exiting;         /* Signal to parent that the thread is done */
-    struct semaphore * loading;         /* Signal to parent that the thread is loaded */
+    struct semaphore exiting;         /* Signal to parent that the thread is done */
+    struct semaphore loading;         /* Signal to parent that the thread is loaded */
     struct file_struct * files;        /* Pointer to open files */
     struct file * exe;                  /* Executable file pointer, owned by process.c:load*/
     void * aux;                         /* For storing the pointer to aux data*/

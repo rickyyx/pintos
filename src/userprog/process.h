@@ -18,7 +18,7 @@ int process_wait (tid_t);
 void process_exit (void);
 void process_activate (void);
 int process_open(const char * file_name);
-void process_close(unsigned long);
+void process_close(int);
 
 void done_child(struct thread *);
 

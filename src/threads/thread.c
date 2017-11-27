@@ -212,13 +212,8 @@ thread_create (const char *name, int priority,
     list_push_back(&parent->children, &t->parent_elem);
 
     /* Init semaphore */
-    struct semaphore * sema_exiting = malloc(sizeof(struct semaphore));
-    sema_init(sema_exiting, 0);
-    t->exiting = sema_exiting;
-
-    struct semaphore * sema_loading = malloc(sizeof(struct semaphore));
-    sema_init(sema_loading, 0);
-    t->loading = sema_loading;
+    sema_init(&t->exiting, 0);
+    sema_init(&t->loading, 0);
 
     /* Init filesys related structs */
     t->files = new_file_struct();
@@ -335,11 +330,9 @@ thread_exit (void)
        when it calls thread_schedule_tail(). */
     intr_disable ();
     list_remove (&thread_current()->allelem);
-
-    /* aux no longer needed */
     
     /* Signal parent */
-    sema_up(running->exiting);
+    sema_up(&running->exiting);
     running->status = THREAD_DYING;
 
     schedule ();
@@ -596,7 +589,6 @@ thread_schedule_tail (struct thread *prev)
     {
         ASSERT (prev != cur);
         done_child(prev);
-        palloc_free_page (prev);
     }
 }
 

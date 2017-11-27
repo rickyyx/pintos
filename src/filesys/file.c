@@ -15,9 +15,12 @@ fd_file(int _fd)
 {
     struct thread * cur;
     cur = thread_current();
-
+    
     ASSERT(cur->files != NULL && cur->files->fdt != NULL 
             && cur->files->fdt->fd != NULL);
+
+    _fd -= FD_OFFSET;
+    ASSERT(_fd >= 0 && _fd < FD_MAX_NR);
 
     return cur->files->fdt->fd[_fd];
 }
@@ -31,6 +34,7 @@ new_file_struct(void)
     fstr = malloc(sizeof(struct file_struct));
     if(fstr == NULL)
         goto end;
+
     fdt =  malloc(sizeof(struct fdtable));
     if(fdt == NULL)
         goto done_fstr;
@@ -46,7 +50,6 @@ new_file_struct(void)
 
     fstr->fdt = fdt;
     fstr->count = 0;
-
 
     return fstr;
 
@@ -80,13 +83,14 @@ free_file_struct(struct file_struct * fs)
 
 
 /* Rely on the fact that l != ~0UL
- * Return  [1, BITS_PER_LONG-1] */
+ * Return  [0, BITS_PER_LONG-1] */
 static
 unsigned long
 ffz(unsigned long l)
 {
     unsigned long i = 0;
-    while(l & (1<<i++));
+    while(l & (1UL<<i))
+        i++;
 
     return i;
 }
@@ -116,9 +120,10 @@ flip_bit(unsigned long * open_fds, unsigned long bit)
     unsigned int start;
 
     start = 0;
-    bit--;
+    //bit--;
 
     bits = open_fds[start+bit/BITS_PER_LONG];
+    bit%=BITS_PER_LONG;
     open_fds[start] = bits ^ (1UL << bit);
 }
 
@@ -128,7 +133,6 @@ set_bit(unsigned long * start, unsigned long bit, bool to_one)
 {
     unsigned long bits, i, offset, remain;
     i = 0;
-    bit--;
     
     offset = bit/BITS_PER_LONG;
     remain = bit%BITS_PER_LONG;
@@ -147,30 +151,31 @@ find_next_fd(struct file_struct * fstruc){
     fdt = fstruc->fdt;
     fd = next_zero_bit(fdt->open_fds, fdt->max_fds); 
     
-    if(fd == fdt->max_fds)
+    if(fd >= fdt->max_fds)
         return FD_ERROR; /* TODO: expanding the fdtable when 
                             hitting max */
     
-    return (int)(fd+FD_OFFSET);
+    return (int)fd;
 }
 
 
 /* TODO: handle explicitly unset the bit */
 void
-unset_fd_bit(unsigned long * open_fds, unsigned long bit)
+unset_fd_bit(struct fdtable * fdt, unsigned long bit)
 {
-    set_bit(open_fds, bit, false);
+    fdt->fd[bit] = NULL;
+    set_bit(fdt->open_fds, bit, false);
 }
 
 static void
 set_fd(int fd, struct file_struct * fstr)
 {
     unsigned long fd_bit;
-    ASSERT(fd > FD_OFFSET);
+    ASSERT(fd >= 0);
 
-    fd_bit = (unsigned long) (fd - FD_OFFSET);
+    fd_bit = (unsigned long) fd;
     
-    flip_bit(fstr->fdt->open_fds, fd_bit);
+    set_bit(fstr->fdt->open_fds, fd_bit, true);
 
 }
 
@@ -182,8 +187,8 @@ assign_fd(int fd, struct file * file, struct file_struct * fstr)
    ASSERT(fstr != NULL);
 
    fd_arr = fstr->fdt->fd;
-   fd_arr[fd] = file;
 
+   fd_arr[fd] = file;
    set_fd(fd, fstr);
 }
 
@@ -198,9 +203,11 @@ alloc_fd(struct file * file)
     cur = thread_current();
     next_fd = find_next_fd(cur->files);
     
-    if(next_fd != FD_ERROR)
-        assign_fd(next_fd, file, cur->files);
-    return next_fd;
+    if(next_fd == FD_ERROR)
+        return FD_ERROR;
+
+    assign_fd(next_fd, file, cur->files);
+    return next_fd+FD_OFFSET;
 }
 
 
@@ -210,7 +217,7 @@ alloc_fd(struct file * file)
 struct file *
 file_open (struct inode *inode) 
 {
-  struct file *file = calloc (1, sizeof *file);
+  struct file *file = calloc (1, sizeof(struct file));
   if (inode != NULL && file != NULL)
     {
       file->inode = inode;

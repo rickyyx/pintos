@@ -36,7 +36,7 @@ static void syscall_tell(int*, struct intr_frame*);
 
 /* Utility methods */
 static bool valid_syscall_num(const int);
-static bool get_syscall_argv(int, int*, int*);
+static bool get_syscall_argv(int,  int*);
 static bool valid_user_vaddr(const void*);
 static bool valid_fd(int);
 
@@ -224,9 +224,9 @@ syscall_close(int * argv, struct intr_frame *f UNUSED)
 {
     int fd = *(int*) argv;
     
-    if(fd - FD_OFFSET < FD_MAX_NR && fd -FD_OFFSET >=0) {
+    if(valid_fd(fd)) {
         lock_acquire(&sys_filesys_lock);
-        process_close((unsigned long) fd-FD_OFFSET);
+        process_close(fd);
         lock_release(&sys_filesys_lock);
     }
 }
@@ -270,7 +270,7 @@ syscall_create(int* argv, struct intr_frame *f)
 static void
 syscall_handler (struct intr_frame *f) 
 {
-  int syscall_num, * argv;
+  int syscall_num;
   int * esp = f->esp;
 
   if(!valid_user_vaddr(esp) || !valid_syscall_num(*esp)){
@@ -278,14 +278,12 @@ syscall_handler (struct intr_frame *f)
   }
 
   syscall_num = *esp++;
-  argv = malloc(4 * sizeof(int));
 
-  if(!get_syscall_argv(syscall_num, argv, esp)) {
-      free(argv);
+  if(!get_syscall_argv(syscall_num, esp)) {
       _exit(-1);
   }
 
-  syscall_table[syscall_num](argv, f);
+  syscall_table[syscall_num](esp, f);
 }
 
 
@@ -297,14 +295,14 @@ valid_syscall_num(const int num)
 
 
 static bool
-get_syscall_argv(const int syscall_num, int * argv, int* esp) 
+get_syscall_argv(const int syscall_num, int* esp) 
 {
     int syscall_argc = syscall_argc_table[syscall_num];
 
     while(syscall_argc--){
         if(!valid_user_vaddr(esp))
             return false;
-        *argv++ = *esp++;
+        esp++;
     }
     return true;
 }

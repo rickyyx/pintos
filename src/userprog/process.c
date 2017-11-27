@@ -27,19 +27,22 @@ static bool load(const struct cmd_frame *, void (**eip) (void), void **);
 static struct cmd_frame * parse_arguments(char*, const char*);
 //static void done_child(struct thread *);
 static void done_files(struct thread *);
-static void done_sema(struct thread *);
+//static void done_sema(struct thread *);
 
 static void zombie_destroy(struct thread *);
 
 /* Closes a open file */
 void
-process_close(unsigned long fdbit)
+process_close(int fd)
 {
     struct file_struct * fstr;
-     fstr = thread_current() -> files;
-    
-    file_close(fstr->fdt->fd[fdbit]);
-    unset_fd_bit(fstr->fdt->open_fds, fdbit);
+    struct file * file;
+
+    fstr = thread_current() -> files;
+
+    file = fd_file(fd);
+    file_close(file);
+    unset_fd_bit(fstr->fdt, (unsigned long) fd-FD_OFFSET);
 }
 
 
@@ -86,6 +89,10 @@ process_execute (const char *file_name)
   
   /* Put cmd_frame on top of the aux page */
   cf_ptr = parse_arguments(ptr, file_name);
+  if(cf_ptr == NULL){ 
+      palloc_free_page(ptr);
+      return TID_ERROR;
+  }
     
   /* Break the exe name from the args */
   file_name_copy = palloc_get_page(0);
@@ -106,8 +113,7 @@ process_execute (const char *file_name)
   /* Wait for child to be loaded */
   cur = thread_current();
   child = thread_child_tid(cur, tid);
-  if(child != NULL && child->loading != NULL)
-    sema_down(child->loading);
+  sema_down(&child->loading);
 
   if(cur->err) {
       tid = TID_ERROR;
@@ -141,10 +147,11 @@ parse_arguments(char * ptr, const char * file_name)
 
   /* Copy comand line to the temp holder */
   tmp_cmd = palloc_get_page(0);
+  if(tmp_cmd == NULL) 
+    return NULL;
 
-  /* TODO: */
-  if(tmp_cmd != NULL) 
-    strlcpy(tmp_cmd, file_name, PGSIZE);
+
+  strlcpy(tmp_cmd, file_name, PGSIZE);
   
   /* Parsed tokens */
   for(token = strtok_r(tmp_cmd,delim, &parsed); token != NULL;
@@ -192,7 +199,7 @@ start_process (void *cmd_frame_)
     thread_current()->exit_status = -1;
   }
 
-  sema_up(thread_current()->loading);
+  sema_up(&thread_current()->loading);
 
   if (!success) {
     thread_exit ();
@@ -239,7 +246,7 @@ process_wait (tid_t child_tid)
 
 valid:
   /* Child exited */
-  sema_down(child->exiting);
+  sema_down(&child->exiting);
 
   /* Killed by the kernel */
   if(child->flags & PF_KILLED) {
@@ -261,7 +268,6 @@ void
 done_child(struct thread * child) 
 {
     list_remove(&child->parent_elem);
-    done_sema(child);
     palloc_free_page(child);
 }
 
@@ -305,14 +311,14 @@ process_exit (void)
     }
 }
 
-static void
-done_sema(struct thread *t) {
-    free(t->exiting);
-    t->exiting = NULL;
-
-    free(t->loading);
-    t->loading = NULL;
-}
+//static void
+//done_sema(struct thread *t) {
+//    free(t->exiting);
+//    t->exiting = NULL;
+//
+//    free(t->loading);
+//    t->loading = NULL;
+//}
 
 static void
 done_files(struct thread *t)
@@ -325,6 +331,7 @@ done_files(struct thread *t)
     
     for(i = 0; i < FD_MAX_NR; i++) {
         file = fstr->fdt->fd[i];
+        fstr->fdt->fd[i] = NULL;
         file_close(file);
     }
 
