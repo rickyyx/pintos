@@ -6,6 +6,10 @@
 #include "synch.h"
 #include <stdint.h>
 
+#ifdef VM
+#include "vm/vm_area.h"
+#endif
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -110,7 +114,12 @@ struct thread
     struct file * exe;                  /* Executable file pointer, owned by process.c:load*/
     void * aux;                         /* For storing the pointer to aux data*/
 
+#ifdef VM
+    struct vm_area vm;                  /* VM address space */
 #endif
+
+#endif
+
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */

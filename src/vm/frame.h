@@ -22,16 +22,22 @@
 
 #include "threads/palloc.h"
 #include <list.h>
+#include <hash.h>
 
 struct list frames;                             /* Frame lists*/
 
 struct frame {
     void * faddr;                               /* Frame address*/
-    void * page;                                /* Page address*/
-    struct list_elem elem;                      /* List element for the frames list*/
+    void * upage;                               /* User Page address*/
+    struct list_elem lelem;                      /* List element for the frames list*/
+    struct hash_elem helem;                     /* Hash element for the frames table */
+    struct thread * t;                          /* Owned by which process */
 };
 
-void * get_frame(void * page, enum palloc_flags);                             /* Get a new frame */
+void vm_frame_init();                           /* Init the frame table */
+void * vm_get_frame(void* uaddr, enum palloc_flags);   /* Get a new frame */
+void * vm_free_frame(void * upage) ;            /* Frees a user page */
+void frame_init();
 
 
 #endif /* vm/frame.h */
