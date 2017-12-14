@@ -23,6 +23,11 @@
 #include "threads/synch.h"
 #ifdef VM
 #include "vm/frame.h"
+#define __get_frame(x,y) vm_get_frame(x,y)
+#define __free_frame(x) vm_free_frame(x)
+#else 
+#define __get_frame(x,y) palloc_get_page(x)
+#define __free_frame(x) palloc_free_page(x)
 #endif
 
 static thread_func start_process NO_RETURN;
@@ -642,18 +647,14 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-#ifdef VM
-      uint8_t *kpage = get_frame(upage, PAL_USER);
-#else
-      uint8_t *kpage = palloc_get_page (PAL_USER);
-#endif
+      uint8_t *kpage = __get_frame(PAL_USER, upage);
       if (kpage == NULL)
         return false;
 
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
-          palloc_free_page (kpage);
+          __free_frame(kpage);
           return false; 
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
@@ -661,7 +662,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable)) 
         {
-          palloc_free_page (kpage);
+            __free_frame(kpage);
           return false; 
         }
 
@@ -687,11 +688,8 @@ setup_stack (void **esp, const struct cmd_frame *cf)
   argc = cf->argc;
   argv_len = cf->argv_len;
 
-#ifdef VM
-  kpage = get_frame(((uint8_t *) PHYS_BASE), PAL_USER | PAL_ZERO);
-#else
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-#endif
+  kpage = __get_frame(PAL_USER | PAL_ZERO, (uint8_t *) PHYS_BASE - PGSIZE);
+
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
@@ -737,7 +735,7 @@ setup_stack (void **esp, const struct cmd_frame *cf)
         //hex_dump((uintptr_t)(*esp), *esp, 92, true);
       }
       else
-        palloc_free_page (kpage);
+          __free_frame(kpage);
     }
   return success;
 }

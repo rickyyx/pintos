@@ -6,6 +6,12 @@ push: clean
 pull:
 	rsync -avz --no-perms chen11@corn.stanford.edu:~/private/pintos/src/ ./
 
+# push: clean
+# 	rsync -avz --no-perms ./ chen11@rice.stanford.edu:~/afs-home/private/pintos/src/
+# 
+# pull:
+# 	rsync -avz --no-perms chen11@rice.stanford.edu:~/afs-home/private/pintos/src/ ./
+
 all::
 	@echo "Run 'make' in subdirectories: $(BUILD_SUBDIRS)."
 	@echo "This top-level make has only 'clean' targets."

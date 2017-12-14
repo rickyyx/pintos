@@ -34,10 +34,9 @@ struct frame {
     struct thread * t;                          /* Owned by which process */
 };
 
-void vm_frame_init();                           /* Init the frame table */
-void * vm_get_frame(void* uaddr, enum palloc_flags);   /* Get a new frame */
-void * vm_free_frame(void * upage) ;            /* Frees a user page */
-void frame_init();
+void vm_frame_init(void);                           /* Init the frame table */
+void * vm_get_frame(enum palloc_flags, void* uaddr);   /* Get a new frame */
+void vm_free_frame(void * upage);            /* Frees a user page */
 
 
 #endif /* vm/frame.h */
